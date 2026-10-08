@@ -1,0 +1,45 @@
+.container { padding: var(--space-4); max-width: 480px; margin: 0 auto; }
+
+.header { display: flex; justify-content: space-between; align-items: center; padding: var(--space-4) 0 var(--space-4); }
+.title { font-size: var(--font-size-xl); font-weight: 700; }
+.createBtn { padding: 8px 16px; background: var(--color-primary); color: white; border-radius: var(--radius-full); font-size: var(--font-size-sm); font-weight: 600; }
+
+.empty { text-align: center; padding: var(--space-12) 0; }
+.emptyIcon { font-size: 48px; margin-bottom: var(--space-3); }
+.emptyText { color: var(--color-text-muted); margin-bottom: var(--space-4); }
+.emptyLink { color: var(--color-primary); font-weight: 600; }
+
+.list { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.cardTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); }
+
+.status {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+
+.status_draft { background: var(--color-surface-3); color: var(--color-text-muted); }
+.status_scheduled { background: #dbeafe; color: #1e40af; }
+.status_publishing { background: var(--color-warning-bg); color: var(--color-warning); }
+.status_published { background: var(--color-success-bg); color: var(--color-success); }
+.status_failed { background: var(--color-error-bg); color: var(--color-error); }
+
+.date { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.caption { font-size: var(--font-size-sm); line-height: 1.5; color: var(--color-text-secondary); margin-bottom: var(--space-3); }
+
+.tags { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
+.tag { font-size: var(--font-size-xs); color: var(--color-text-muted); background: var(--color-surface-3); padding: 3px 8px; border-radius: var(--radius-full); }
+
+.actions { display: flex; gap: var(--space-2); }
+.viewBtn { font-size: var(--font-size-sm); color: var(--color-primary); font-weight: 600; }
+.deleteBtn { font-size: var(--font-size-sm); color: var(--color-error); margin-left: auto; }

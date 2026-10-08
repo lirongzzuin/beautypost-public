@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="12" fill="#a23553"/>
+  <!-- Stylized B for BeautyPost -->
+  <text x="12" y="35" font-family="Georgia, serif" font-size="28" font-weight="700" fill="white">B</text>
+  <!-- Small flower accent -->
+  <circle cx="34" cy="14" r="5" fill="white" opacity="0.9"/>
+  <circle cx="34" cy="14" r="3" fill="#a23553"/>
+</svg>

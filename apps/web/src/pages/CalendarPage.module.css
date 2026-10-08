@@ -1,0 +1,82 @@
+.container { padding: var(--space-4); max-width: 480px; margin: 0 auto; }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) 0;
+  font-size: 24px;
+}
+
+.monthTitle { font-size: var(--font-size-lg); font-weight: 700; }
+
+.dayNames {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: var(--space-2);
+}
+
+.dayName { font-size: var(--font-size-xs); color: var(--color-text-muted); padding: var(--space-2) 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: var(--space-6);
+}
+
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.today { background: var(--color-primary-lighter); }
+.today .dayNum { color: var(--color-primary); font-weight: 700; }
+
+.dayNum { font-size: var(--font-size-sm); }
+
+.dots { display: flex; gap: 2px; margin-top: 2px; }
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+}
+
+.dotPublished { background: var(--color-primary); }
+.dotScheduled { background: var(--color-primary-light); opacity: 0.6; }
+
+.list { padding-top: var(--space-4); border-top: 1px solid var(--color-border-light); }
+
+.listTitle { font-size: var(--font-size-base); font-weight: 700; margin-bottom: var(--space-3); }
+
+.postItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.statusPublished { background: var(--color-primary); }
+.statusScheduled { background: var(--color-primary-light); }
+.statusDraft { background: var(--color-border); }
+
+.postInfo { flex: 1; min-width: 0; }
+.postCaption { font-size: var(--font-size-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.postMeta { font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px; }
+
+.empty { text-align: center; padding: var(--space-10) 0; color: var(--color-text-muted); }
+.createLink { display: block; color: var(--color-primary); font-weight: 600; margin-top: var(--space-3); }
