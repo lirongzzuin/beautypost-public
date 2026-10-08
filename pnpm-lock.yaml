@@ -29,6 +29,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@ai-sdk/google':
+        specifier: ^3.0.131
+        version: 3.0.131(zod@4.6.5)
       '@beautypost/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -62,6 +65,9 @@ importers:
       resend:
         specifier: ^4.0.0
         version: 4.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -150,6 +156,12 @@ packages:
 
   '@ai-sdk/gateway@3.0.210':
     resolution: {integrity: sha512-XUC2HGvDLhpfHKT7yXirZELHWIHzPJLtE3CE3FO6fjcQHcKR5nrsHxOp00THk1SivDo3IZB1yS6Un4+kAQ8eJg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@3.0.131':
+    resolution: {integrity: sha512-wztgK14qFScRr+xRoDU/bc1H+Q218GbSSBeiTc5pyQoxtkUOp0EdBFF8aswS/aHIs55JCQIjmlJ65Z7Bh5biNA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -3356,6 +3368,12 @@ snapshots:
       '@ai-sdk/provider': 3.0.18
       '@ai-sdk/provider-utils': 4.0.57(zod@4.6.5)
       '@vercel/oidc': 3.2.0
+      zod: 4.6.5
+
+  '@ai-sdk/google@3.0.131(zod@4.6.5)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.18
+      '@ai-sdk/provider-utils': 4.0.57(zod@4.6.5)
       zod: 4.6.5
 
   '@ai-sdk/provider-utils@4.0.57(zod@4.6.5)':

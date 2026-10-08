@@ -1,9 +1,79 @@
-import { generateText } from 'ai'
+import { generateObject } from 'ai'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { z } from 'zod'
+import type { LanguageModel } from 'ai'
 import type { BeautyCategory, ToneStyle } from '@beautypost/shared'
 import { DEFAULT_HASHTAGS, DEFAULT_PROHIBITED_PHRASES } from '@beautypost/shared'
 
-// Routes through Vercel AI Gateway (OIDC on Vercel, AI_GATEWAY_API_KEY locally)
-const MODEL = 'anthropic/claude-sonnet-4.6'
+// ─── Provider strategy ───────────────────────────────────────────────────────
+// Primary:  Google Gemini free tier — genuinely free (≈1,500 req/day), activated
+//           by setting GOOGLE_GENERATIVE_AI_API_KEY. Cost = 0 for early volume.
+// Fallback: Vercel AI Gateway → Claude, which runs on Vercel's free monthly
+//           credits. Used automatically when Gemini is absent, rate-limited, or
+//           errors. This keeps generation working no matter what.
+//
+// A self-hosted/installed LLM was considered and rejected: it cannot run inside
+// Vercel serverless functions (no GPU, multi-GB weights, 300s limit) and a
+// dedicated GPU host costs far more than these free tiers at early scale.
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
+const GATEWAY_MODEL = process.env.AI_FALLBACK_MODEL ?? 'anthropic/claude-sonnet-4.6'
+
+interface Candidate {
+  name: string
+  model: LanguageModel
+}
+
+// Ordered list of models to try. Gemini first (free), gateway second (fallback).
+function getCandidates(): Candidate[] {
+  const candidates: Candidate[] = []
+
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY })
+    candidates.push({ name: `gemini:${GEMINI_MODEL}`, model: google(GEMINI_MODEL) })
+  }
+
+  // String model id routes through the Vercel AI Gateway automatically (OIDC on
+  // Vercel, AI_GATEWAY_API_KEY locally). Always available as a fallback.
+  candidates.push({ name: `gateway:${GATEWAY_MODEL}`, model: GATEWAY_MODEL })
+
+  return candidates
+}
+
+// Run generateObject against each candidate in order, returning the first
+// success. Only the final error propagates if all providers fail.
+async function generateWithFallback<T>(
+  schema: z.ZodType<T>,
+  prompt: string,
+  maxOutputTokens?: number,
+): Promise<T> {
+  const candidates = getCandidates()
+  let lastError: unknown
+
+  for (const { name, model } of candidates) {
+    try {
+      const { object } = await generateObject({
+        model,
+        schema,
+        prompt,
+        ...(maxOutputTokens ? { maxOutputTokens } : {}),
+      })
+      return object
+    } catch (err) {
+      console.error(`[AI] provider "${name}" failed:`, err instanceof Error ? err.message : err)
+      lastError = err
+    }
+  }
+
+  throw lastError ?? new Error('No AI provider available')
+}
+
+// ─── Caption generation ──────────────────────────────────────────────────────
+
+const captionSchema = z.object({
+  caption: z.string().describe('인스타그램 캡션 본문 (200~300자, 줄바꿈 포함)'),
+  hashtags: z.array(z.string()).describe('해시태그 10~15개, 각 항목은 # 포함'),
+})
 
 export interface GenerateCaptionInput {
   theme: string
@@ -48,22 +118,22 @@ ${input.keywords ? `키워드: ${input.keywords}` : ''}
 
 그리고 적절한 해시태그 10~15개를 선택해주세요.
 기본 해시태그: ${categoryHashtags.join(', ')}
-추가 해시태그 후보: ${extraHashtags}
+추가 해시태그 후보: ${extraHashtags}`
 
-JSON으로 응답해주세요:
-{"caption": "캡션 내용", "hashtags": ["#태그1", "#태그2", ...]}`
-
-  const { text } = await generateText({ model: MODEL, prompt })
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('AI response parse error')
-
-  const parsed = JSON.parse(jsonMatch[0]) as { caption: string; hashtags: string[] }
+  const result = await generateWithFallback(captionSchema, prompt)
   return {
-    caption: parsed.caption ?? '',
-    hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
+    caption: result.caption ?? '',
+    hashtags: Array.isArray(result.hashtags) ? result.hashtags : [],
   }
 }
+
+// ─── Blog draft generation ───────────────────────────────────────────────────
+
+const blogSchema = z.object({
+  title: z.string().describe('SEO 친화적 제목, 30자 이내'),
+  body: z.string().describe('블로그 본문 600~1000자, 소제목 포함'),
+  tags: z.array(z.string()).describe('태그 3~7개, # 없이'),
+})
 
 export interface GenerateBlogDraftInput {
   caption: string
@@ -92,20 +162,12 @@ export async function generateBlogDraft(input: GenerateBlogDraftInput): Promise<
 - 제목은 SEO에 적합하게 (키워드 포함, 30자 이내)
 - 본문은 600~1000자, 소제목 포함, 블로그 감성
 - 태그는 3~7개 (해시태그 # 없이)
-- 자연스럽고 진정성 있는 블로그 글투
+- 자연스럽고 진정성 있는 블로그 글투`
 
-JSON으로 응답:
-{"title": "제목", "body": "본문 내용", "tags": ["태그1", "태그2"]}`
-
-  const { text } = await generateText({ model: MODEL, prompt, maxOutputTokens: 2048 })
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('AI blog response parse error')
-
-  const parsed = JSON.parse(jsonMatch[0]) as BlogDraft
+  const result = await generateWithFallback(blogSchema, prompt, 2048)
   return {
-    title: parsed.title ?? '',
-    body: parsed.body ?? '',
-    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    title: result.title ?? '',
+    body: result.body ?? '',
+    tags: Array.isArray(result.tags) ? result.tags : [],
   }
 }
