@@ -19,12 +19,17 @@ export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   }
   const { Resend } = await import('resend')
   const resend = new Resend(process.env.RESEND_API_KEY)
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM ?? 'noreply@beautypost.kr',
     to: opts.to,
     subject: opts.subject,
     html: opts.html,
   })
+  if (error) {
+    console.error('[Resend] send failed:', JSON.stringify(error))
+    throw new Error(`Email send failed: ${error.message}`)
+  }
+  console.log('[Resend] sent:', data?.id, '→', opts.to)
 }
 
 export function magicLinkEmail(email: string, link: string): SendEmailOptions {
