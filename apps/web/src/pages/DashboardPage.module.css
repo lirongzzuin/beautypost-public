@@ -173,3 +173,23 @@
 
 .notifTitle { font-size: var(--font-size-sm); font-weight: 600; margin-bottom: 2px; }
 .notifBody { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+
+.suggestCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+.suggestCard:active { transform: scale(0.99); }
+.suggestText { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.suggestKicker { font-size: var(--font-size-xs); font-weight: 600; opacity: 0.85; }
+.suggestTitle { font-size: var(--font-size-lg); font-weight: 800; }
+.suggestDesc { font-size: var(--font-size-xs); opacity: 0.9; }
+.suggestGo { font-size: 24px; font-weight: 700; opacity: 0.9; }

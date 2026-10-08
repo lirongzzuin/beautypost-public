@@ -73,6 +73,10 @@ export interface UserProfile {
   shopName: string
   region: string
   category: BeautyCategory
+  /** Selected service keys from SERVICE_CATALOG (multi-select). */
+  services: string[]
+  /** Free-text services the shop added themselves. */
+  customServices: string[]
   tone: ToneStyle
   instagramHandle?: string
   weeklyPostGoal: number

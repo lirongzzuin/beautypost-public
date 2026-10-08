@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useToast } from '@beautypost/ui'
 import { useAuthStore } from '~/store/auth'
 import { api } from '~/api/client'
-import { BEAUTY_CATEGORY_LABELS, TONE_LABELS } from '@beautypost/shared'
+import { SERVICE_CATALOG, TONE_LABELS } from '@beautypost/shared'
 import styles from './OnboardingPage.module.css'
 
 type Step = 1 | 2 | 3
@@ -16,17 +16,37 @@ export default function OnboardingPage() {
   const refreshUser = useAuthStore((s) => s.refreshUser)
   const [step, setStep] = useState<Step>(1)
   const [loading, setLoading] = useState(false)
+  const [customInput, setCustomInput] = useState('')
   const [form, setForm] = useState({
     shopName: '',
     region: '',
-    category: 'other',
+    services: [] as string[],
+    customServices: [] as string[],
     tone: 'friendly',
     weeklyPostGoal: 3,
   })
 
-  function set(key: string, value: string | number) {
+  function set(key: string, value: string | number | string[]) {
     setForm((f) => ({ ...f, [key]: value }))
   }
+
+  function toggleService(key: string) {
+    setForm((f) => ({
+      ...f,
+      services: f.services.includes(key)
+        ? f.services.filter((s) => s !== key)
+        : [...f.services, key],
+    }))
+  }
+
+  function addCustom() {
+    const v = customInput.trim()
+    if (!v || form.customServices.includes(v)) return setCustomInput('')
+    set('customServices', [...form.customServices, v])
+    setCustomInput('')
+  }
+
+  const hasService = form.services.length > 0 || form.customServices.length > 0
 
   async function handleFinish() {
     setLoading(true)
@@ -81,18 +101,45 @@ export default function OnboardingPage() {
               />
             </div>
             <div className={styles.field}>
-              <label className={styles.label}>업종</label>
+              <label className={styles.label}>제공 서비스 <span className={styles.labelHint}>(여러 개 선택 가능)</span></label>
               <div className={styles.chipGrid}>
-                {Object.entries(BEAUTY_CATEGORY_LABELS).map(([key, label]) => (
+                {SERVICE_CATALOG.map((svc) => (
                   <button
-                    key={key}
-                    className={`${styles.chip} ${form.category === key ? styles.chipSelected : ''}`}
-                    onClick={() => set('category', key)}
+                    key={svc.key}
+                    className={`${styles.chip} ${form.services.includes(svc.key) ? styles.chipSelected : ''}`}
+                    onClick={() => toggleService(svc.key)}
                     type="button"
                   >
-                    {label}
+                    {svc.label}
                   </button>
                 ))}
+              </div>
+
+              {/* custom services */}
+              {form.customServices.length > 0 && (
+                <div className={styles.chipGrid} style={{ marginTop: 8 }}>
+                  {form.customServices.map((c) => (
+                    <button
+                      key={c}
+                      className={`${styles.chip} ${styles.chipSelected}`}
+                      onClick={() => set('customServices', form.customServices.filter((x) => x !== c))}
+                      type="button"
+                    >
+                      {c} ✕
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className={styles.customRow}>
+                <input
+                  className={styles.input}
+                  placeholder="직접 입력 (예: 두피케어)"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
+                />
+                <button className={styles.addCustomBtn} type="button" onClick={addCustom}>추가</button>
               </div>
             </div>
           </div>
@@ -145,7 +192,7 @@ export default function OnboardingPage() {
           <button
             className={styles.nextBtn}
             onClick={() => setStep((s) => (s + 1) as Step)}
-            disabled={step === 1 && (!form.shopName.trim() || !form.region.trim())}
+            disabled={step === 1 && (!form.shopName.trim() || !form.region.trim() || !hasService)}
           >
             다음
           </button>

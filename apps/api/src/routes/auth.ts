@@ -7,7 +7,7 @@ import { sendEmail, magicLinkEmail } from '../lib/email.js'
 import { grantReward } from '../lib/rewards.js'
 import { authRateLimit } from '../middleware/ratelimit.js'
 import { authMiddleware } from '../middleware/auth.js'
-import { DEFAULT_TRIAL_DAYS } from '@beautypost/shared'
+import { DEFAULT_TRIAL_DAYS, getServiceDef } from '@beautypost/shared'
 
 const auth = new Hono()
 
@@ -183,7 +183,9 @@ auth.post('/onboarding', authMiddleware, async (c) => {
   const body = await c.req.json<{
     shopName: string
     region: string
-    category: string
+    category?: string
+    services?: string[]
+    customServices?: string[]
     tone: string
     weeklyPostGoal?: number
   }>()
@@ -191,6 +193,17 @@ auth.post('/onboarding', authMiddleware, async (c) => {
   if (!body.shopName || !body.region) {
     return c.json({ code: 'VALIDATION_ERROR', message_ko: '가게명과 지역은 필수예요.' }, 400)
   }
+
+  const services = Array.isArray(body.services) ? body.services.filter(Boolean) : []
+  const customServices = Array.isArray(body.customServices) ? body.customServices.filter(Boolean) : []
+
+  if (services.length === 0 && customServices.length === 0) {
+    return c.json({ code: 'VALIDATION_ERROR', message_ko: '서비스를 하나 이상 선택해주세요.' }, 400)
+  }
+
+  // Backward-compat: derive the legacy `category` enum from the first service.
+  const firstDef = services.length ? getServiceDef(services[0]!) : undefined
+  const category = (body.category ?? firstDef?.category ?? 'other') as any
 
   const db = getDb()
   const existing = await db
@@ -206,7 +219,9 @@ auth.post('/onboarding', authMiddleware, async (c) => {
       .set({
         shopName: body.shopName,
         region: body.region,
-        category: (body.category as any) ?? 'other',
+        category,
+        services,
+        customServices,
         tone: (body.tone as any) ?? 'friendly',
         weeklyPostGoal: body.weeklyPostGoal ?? 3,
         onboardingCompletedAt: new Date(),
@@ -218,7 +233,9 @@ auth.post('/onboarding', authMiddleware, async (c) => {
       userId,
       shopName: body.shopName,
       region: body.region,
-      category: (body.category as any) ?? 'other',
+      category,
+      services,
+      customServices,
       tone: (body.tone as any) ?? 'friendly',
       weeklyPostGoal: body.weeklyPostGoal ?? 3,
       onboardingCompletedAt: new Date(),

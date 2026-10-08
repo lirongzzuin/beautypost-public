@@ -17,12 +17,11 @@ channels.use('/instagram/oauth', authMiddleware)
 channels.use('/:channelType', authMiddleware)
 
 async function getRedis() {
-  if (!process.env.UPSTASH_REDIS_REST_URL) return null
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !url.startsWith('http') || !token) return null
   const { Redis } = await import('@upstash/redis')
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  })
+  return new Redis({ url, token })
 }
 
 // GET /api/channels — list connected channels

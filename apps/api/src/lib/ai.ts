@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { z } from 'zod'
 import type { LanguageModel } from 'ai'
 import type { BeautyCategory, ToneStyle } from '@beautypost/shared'
-import { DEFAULT_HASHTAGS, DEFAULT_PROHIBITED_PHRASES } from '@beautypost/shared'
+import { DEFAULT_HASHTAGS, DEFAULT_PROHIBITED_PHRASES, SERVICE_CATALOG } from '@beautypost/shared'
 
 // ─── Provider strategy ───────────────────────────────────────────────────────
 // Primary:  Google Gemini free tier — genuinely free (≈1,500 req/day), activated
@@ -85,6 +85,15 @@ export interface GenerateCaptionInput {
   category: BeautyCategory
   tone: ToneStyle
   shopName: string
+  region?: string
+  /** SERVICE_CATALOG keys selected by the shop. */
+  services?: string[]
+  /** Free-text services the shop added. */
+  customServices?: string[]
+  /** Customer name to weave into a review post (후기). */
+  customerName?: string
+  /** Up to N of this account's preferred past captions, used as style few-shot. */
+  styleExamples?: string[]
   prohibitedPhrases?: string[]
   customHashtags?: string[]
 }
@@ -94,35 +103,70 @@ export interface GeneratedContent {
   hashtags: string[]
 }
 
+const THEME_GUIDE: Record<string, string> = {
+  review: '고객 시술 후기. 고객의 고민→시술→만족스러운 변화 흐름. 실제 겪은 일처럼 생생하게. 고객 이름이 주어지면 "○○님" 호칭으로 자연스럽게 녹여라.',
+  before_after: '전/후 변화가 주인공. 어떤 점이 어떻게 달라졌는지 구체적으로. 과장 없이 사실 기반.',
+  event: '이벤트·할인 안내. 혜택과 기간을 명확히, 부담 없이 방문 유도. 마감 임박 느낌은 살리되 거짓 긴박감 금지.',
+  care_guide: '시술 후 홈케어·관리 팁. 원장님이 알려주는 전문가 꿀팁 느낌. 저장하고 싶은 유용한 정보.',
+  shop_intro: '매장·원장 소개. 공간 분위기와 철학, 믿고 맡길 수 있는 이유를 감성적으로.',
+  booking_notice: '예약 안내·공지. 예약 방법과 현황을 친절하고 깔끔하게.',
+}
+
 export async function generateCaption(input: GenerateCaptionInput): Promise<GeneratedContent> {
   const prohibited = [...DEFAULT_PROHIBITED_PHRASES, ...(input.prohibitedPhrases ?? [])]
-  const categoryHashtags = DEFAULT_HASHTAGS[input.category] ?? DEFAULT_HASHTAGS['other'] ?? []
-  const extraHashtags = input.customHashtags?.join(', ') ?? ''
+
+  // Gather selected-service definitions for hashtags + domain style hints.
+  const defs = (input.services ?? [])
+    .map((k) => SERVICE_CATALOG.find((s) => s.key === k))
+    .filter(Boolean) as (typeof SERVICE_CATALOG)[number][]
+  const serviceLabels = [...defs.map((d) => d.label), ...(input.customServices ?? [])]
+  const serviceLine = serviceLabels.length ? serviceLabels.join(', ') : '뷰티 시술'
+  const styleHints = defs.length
+    ? defs.map((d) => `· ${d.label}: ${d.style}`).join('\n')
+    : ''
+
+  const catalogHashtags = defs.flatMap((d) => d.hashtags)
+  const fallbackHashtags = DEFAULT_HASHTAGS[input.category] ?? DEFAULT_HASHTAGS['other'] ?? []
+  const seedHashtags = [...new Set([...catalogHashtags, ...fallbackHashtags, ...(input.customHashtags ?? [])])]
 
   const toneDesc = {
-    friendly: '친근하고 따뜻한 말투, 이모지 적극 활용, 고객과 친구처럼',
-    professional: '전문적이고 신뢰감 있는 말투, 시술 효과와 기술을 강조',
-    trendy: '트렌디하고 감각적인 말투, MZ 세대 감성, 짧고 임팩트 있게',
+    friendly: '친근하고 따뜻한 말투. 이모지는 과하지 않게 포인트로. 단골에게 말 걸듯',
+    professional: '차분하고 전문적인 말투. 시술 디테일과 신뢰를 중심으로',
+    trendy: '감각적이고 트렌디한 말투. 짧은 호흡, MZ 감성, 군더더기 없이',
   }[input.tone]
 
-  const prompt = `당신은 뷰티 자영업자를 위한 SNS 마케터입니다.
-가게명: ${input.shopName}
-업종: ${input.category}
-게시 주제: ${input.theme}
-${input.keywords ? `키워드: ${input.keywords}` : ''}
+  const themeGuide = THEME_GUIDE[input.theme] ?? `게시 주제: ${input.theme}`
+  const customerLine = input.customerName
+    ? `\n고객 이름: ${input.customerName} (후기 글에 "${input.customerName}님"으로 자연스럽게 등장시켜라. 개인정보는 이름 외엔 쓰지 마라.)`
+    : ''
+
+  // Few-shot personalization: mimic the account's own preferred past captions.
+  const examples = (input.styleExamples ?? []).filter((t) => t && t.trim()).slice(0, 5)
+  const styleExampleBlock = examples.length
+    ? `\n\n[이 계정이 좋아하는 글 스타일 — 아래 예시들의 말투·길이·리듬·이모지 사용을 그대로 닮게 써라. 내용은 베끼지 말고 이번 주제로 새로 써라]\n${examples.map((e, i) => `예시${i + 1}: """${e.trim()}"""`).join('\n')}`
+    : ''
+
+  const prompt = `너는 뷰티샵 ${input.shopName} 원장님의 인스타그램을 10년째 운영해 온 현지 SNS 담당자다.
+${input.region ? `지역: ${input.region}` : ''}
+제공 서비스: ${serviceLine}
+${styleHints ? `업종별 포인트:\n${styleHints}` : ''}
+
+이번 글 주제: ${themeGuide}${customerLine}
+${input.keywords ? `꼭 반영할 키워드: ${input.keywords}` : ''}
 말투: ${toneDesc}
-금지 표현: ${prohibited.join(', ')}
 
-다음 조건에 맞는 인스타그램 캡션을 작성해주세요:
-- 200~300자 이내
-- 줄바꿈을 활용해 읽기 편하게
-- 마지막 줄에 CTA(행동 유도) 포함
-- 금지 표현 절대 사용 금지
-- 과장 광고 없이 진실되게
+[잘 나가는 뷰티 인스타 글의 특징 — 반드시 지켜라]
+- 첫 줄에서 바로 눈길을 끈다 (질문·공감·상황 묘사 중 하나). 인삿말·자기소개로 시작하지 마라.
+- 광고티 나는 상투적 표현 금지: "안녕하세요 원장입니다", "최고의", "믿고 맡겨주세요", "많은 관심 부탁드립니다" 같은 뻔한 문구 쓰지 마라.
+- AI가 쓴 티 나는 번역투·격식체 금지. 실제 한국 뷰티샵 사장님이 폰으로 쓴 것처럼 구어체로.
+- 짧은 문장과 줄바꿈으로 리듬감 있게. 문단당 1~2줄.
+- 이모지는 문장을 대체하지 말고 감정 포인트에만 1~3개.
+- 구체적인 디테일 하나 이상 (컬러명·시술 과정·지속기간·고객 반응 등).
+- 마지막은 부담 없는 행동 유도 한 줄 (예약·DM·저장 등). 단, 매번 같은 말 반복 금지.
+- 전체 180~320자. 금지 표현 절대 사용 금지: ${prohibited.join(', ')}
 
-그리고 적절한 해시태그 10~15개를 선택해주세요.
-기본 해시태그: ${categoryHashtags.join(', ')}
-추가 해시태그 후보: ${extraHashtags}`
+해시태그는 10~15개. 아래를 참고하되 지역·시술 특화 태그를 섞어 자연스럽게:
+${seedHashtags.join(', ')}${styleExampleBlock}`
 
   const result = await generateWithFallback(captionSchema, prompt)
   return {

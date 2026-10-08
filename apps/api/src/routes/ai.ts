@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { getDb, schema } from '../db/index.js'
 import { authMiddleware, entitlementMiddleware, type AuthVariables } from '../middleware/auth.js'
 import { aiRateLimit } from '../middleware/ratelimit.js'
 import { generateCaption, generateBlogDraft } from '../lib/ai.js'
+import { STYLE_EXAMPLE_LIMIT } from '@beautypost/shared'
 
 const ai = new Hono<{ Variables: AuthVariables }>()
 ai.use('*', authMiddleware, entitlementMiddleware, aiRateLimit)
@@ -15,6 +16,7 @@ ai.post('/caption', async (c) => {
     theme: string
     keywords?: string
     mediaIds?: string[]
+    customerId?: string
   }>()
 
   if (!body.theme) {
@@ -32,6 +34,25 @@ ai.post('/caption', async (c) => {
     return c.json({ code: 'VALIDATION_ERROR', message_ko: '프로필 설정을 먼저 완료해주세요.' }, 400)
   }
 
+  // Resolve customer name for review posts (name only — no other PII in prompt).
+  let customerName: string | undefined
+  if (body.customerId) {
+    const [cust] = await db
+      .select({ name: schema.customers.name })
+      .from(schema.customers)
+      .where(and(eq(schema.customers.id, body.customerId), eq(schema.customers.userId, userId)))
+      .limit(1)
+    customerName = cust?.name
+  }
+
+  // Load this account's preferred-style samples for few-shot personalization.
+  const examples = await db
+    .select({ text: schema.styleExamples.text })
+    .from(schema.styleExamples)
+    .where(eq(schema.styleExamples.userId, userId))
+    .orderBy(desc(schema.styleExamples.createdAt))
+    .limit(STYLE_EXAMPLE_LIMIT)
+
   try {
     const result = await generateCaption({
       theme: body.theme,
@@ -39,6 +60,11 @@ ai.post('/caption', async (c) => {
       category: profile.category,
       tone: profile.tone,
       shopName: profile.shopName,
+      region: profile.region,
+      services: profile.services,
+      customServices: profile.customServices,
+      customerName,
+      styleExamples: examples.map((e) => e.text),
       prohibitedPhrases: profile.prohibitedPhrases,
       customHashtags: profile.customHashtags,
     })

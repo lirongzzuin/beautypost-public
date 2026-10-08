@@ -60,6 +60,10 @@ export const profiles = pgTable('profiles', {
   shopName: text('shop_name').notNull(),
   region: text('region').notNull(),
   category: beautyCategoryEnum('category').notNull().default('other'),
+  // Multi-select services (SERVICE_CATALOG keys) + free-text custom services.
+  // `category` is kept for backward-compat (hashtags/stats) = first service.
+  services: jsonb('services').$type<string[]>().notNull().default([]),
+  customServices: jsonb('custom_services').$type<string[]>().notNull().default([]),
   tone: toneStyleEnum('tone').notNull().default('friendly'),
   weeklyPostGoal: integer('weekly_post_goal').notNull().default(3),
   prohibitedPhrases: jsonb('prohibited_phrases').$type<string[]>().notNull().default([]),
@@ -67,6 +71,18 @@ export const profiles = pgTable('profiles', {
   onboardingCompletedAt: timestamp('onboarding_completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// ─── Style Examples (caption few-shot personalization) ────────────────────────
+// Caption text the shop "liked/saved" as a style reference. Only the text is
+// stored; it is injected into the caption prompt as a few-shot style sample.
+// Capped per user (see STYLE_EXAMPLE_LIMIT) to bound prompt size and cost.
+
+export const styleExamples = pgTable('style_examples', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 // ─── Entitlements ─────────────────────────────────────────────────────────────

@@ -1,12 +1,37 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '~/store/auth'
 import { api } from '~/api/client'
+import { POST_THEMES } from '@beautypost/shared'
 import type { WeeklyStats, Notification } from '@beautypost/shared'
 import styles from './DashboardPage.module.css'
 
+// A gentle weekly posting routine — one suggested theme per day so the owner
+// always has a "what should I post today?" answer in one tap. Index = getDay()
+// (0=Sun … 6=Sat).
+const WEEKLY_PLAN: string[] = [
+  'shop_intro',     // Sun — relaxed brand story
+  'review',         // Mon — kick the week off with social proof
+  'care_guide',     // Tue — helpful tip
+  'before_after',   // Wed — eye-catching transformation
+  'event',          // Thu — nudge weekend bookings
+  'review',         // Fri — another happy customer
+  'booking_notice', // Sat — next-week availability
+]
+
+export const CREATE_THEME_KEY = 'bp:create-theme'
+
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
+
+  const todayThemeId = WEEKLY_PLAN[new Date().getDay()] ?? 'review'
+  const suggested = POST_THEMES.find((t) => t.id === todayThemeId) ?? POST_THEMES[0]
+
+  function startSuggested() {
+    sessionStorage.setItem(CREATE_THEME_KEY, todayThemeId)
+    navigate({ to: '/posts/create' })
+  }
 
   const { data: stats } = useQuery({
     queryKey: ['weekly-stats'],
@@ -69,6 +94,16 @@ export default function DashboardPage() {
             <p className={styles.goalMet}>🎉 이번 주 목표 달성! +3일 보너스</p>
           )}
         </div>
+
+        {/* Today's recommended post */}
+        <button className={styles.suggestCard} onClick={startSuggested} type="button">
+          <div className={styles.suggestText}>
+            <span className={styles.suggestKicker}>오늘의 추천 게시물</span>
+            <span className={styles.suggestTitle}>{suggested?.label}</span>
+            <span className={styles.suggestDesc}>{suggested?.desc} · 원탭으로 바로 만들기</span>
+          </div>
+          <span className={styles.suggestGo}>→</span>
+        </button>
 
         {/* Quick actions */}
         <div className={styles.section}>

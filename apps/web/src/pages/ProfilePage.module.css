@@ -23,3 +23,14 @@
 
 .saveBtn { width: 100%; padding: 15px; background: var(--color-primary); color: white; border-radius: var(--radius-md); font-size: var(--font-size-base); font-weight: 700; margin-top: var(--space-8); }
 .saveBtn:disabled { opacity: 0.5; }
+
+.hint { font-size: var(--font-size-xs); font-weight: 500; color: var(--color-text-muted); }
+
+.customRow { display: flex; gap: var(--space-2); margin-top: var(--space-2); }
+.customRow .input { flex: 1; min-width: 0; }
+.addCustomBtn { padding: 0 18px; border-radius: var(--radius-md); background: var(--color-primary-bg); color: var(--color-primary); font-weight: 600; font-size: var(--font-size-sm); white-space: nowrap; flex-shrink: 0; }
+
+.styleList { display: flex; flex-direction: column; gap: var(--space-2); }
+.styleCard { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-surface-2); border: 1px solid var(--color-border-light); border-radius: var(--radius-md); }
+.styleText { flex: 1; font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: 1.5; white-space: pre-wrap; max-height: 5.5em; overflow: hidden; }
+.styleDelete { flex-shrink: 0; font-size: var(--font-size-xs); font-weight: 600; color: var(--color-error); padding: 4px 8px; }

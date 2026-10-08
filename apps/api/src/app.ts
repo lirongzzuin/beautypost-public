@@ -11,6 +11,7 @@ import channelsRoutes from './routes/channels.js'
 import customersRoutes from './routes/customers.js'
 import notificationsRoutes from './routes/notifications.js'
 import entitlementsRoutes from './routes/entitlements.js'
+import styleExamplesRoutes from './routes/style-examples.js'
 import cronRoutes from './routes/cron.js'
 
 const app = new Hono().basePath('/api')
@@ -34,9 +35,9 @@ if (process.env.NODE_ENV !== 'production') {
   app.use('*', prettyJSON())
 }
 
-app.get('/api/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }))
+app.get('/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }))
 
-app.get('/api/config', (c) => {
+app.get('/config', (c) => {
   return c.json({
     data: {
       minSupportedVersion: '1.0.0',
@@ -56,6 +57,7 @@ app.route('/channels', channelsRoutes)
 app.route('/customers', customersRoutes)
 app.route('/notifications', notificationsRoutes)
 app.route('/entitlements', entitlementsRoutes)
+app.route('/style-examples', styleExamplesRoutes)
 app.route('/cron', cronRoutes)
 
 app.onError((err, c) => {

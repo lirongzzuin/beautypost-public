@@ -10,6 +10,83 @@ export const BEAUTY_CATEGORY_LABELS: Record<string, string> = {
   other: '기타',
 }
 
+// 확장 서비스 카탈로그 — 원장님은 여러 서비스를 동시에 선택할 수 있다.
+// `style`은 AI 캡션 생성 시 업종별 "실제 잘나가는 게시글" 톤을 유도하는 힌트.
+// `category`는 하위호환용 기존 enum 매핑(해시태그/통계용).
+export interface ServiceDef {
+  key: string
+  label: string
+  category: string // maps to BeautyCategory enum for backward compat
+  hashtags: string[]
+  style: string
+}
+
+export const SERVICE_CATALOG: ServiceDef[] = [
+  {
+    key: 'eyebrow_tattoo', label: '눈썹문신', category: 'eyebrow_tattoo',
+    hashtags: ['#눈썹문신', '#반영구눈썹', '#자연눈썹', '#눈썹문신추천'],
+    style: '얼굴형·눈매에 맞춘 디자인 설명, 자연스러움·지속력 강조, 시술 과정 신뢰감',
+  },
+  {
+    key: 'lash', label: '속눈썹', category: 'lash_perm',
+    hashtags: ['#속눈썹연장', '#속눈썹펌', '#자연속눈썹', '#속눈썹추천'],
+    style: '눈매 또렷해지는 변화, 자연스러운 컬·볼륨, 데일리 편안함 강조',
+  },
+  {
+    key: 'nail', label: '네일아트', category: 'nail',
+    hashtags: ['#네일아트', '#젤네일', '#네일디자인', '#손끝완성'],
+    style: '시즌·트렌드 컬러, 디자인 디테일, 손끝 분위기, 지속력',
+  },
+  {
+    key: 'skincare', label: '피부미용', category: 'other',
+    hashtags: ['#피부관리', '#피부미용', '#스킨케어', '#피부관리실'],
+    style: '피부 고민별 솔루션, 관리 후 결·톤 변화, 꾸준한 관리 루틴 제안',
+  },
+  {
+    key: 'hair', label: '헤어', category: 'other',
+    hashtags: ['#헤어', '#염색', '#펌', '#헤어스타일'],
+    style: '얼굴형·모질에 맞춘 스타일 제안, 컬러·펌 변화, 손질 편함',
+  },
+  {
+    key: 'makeup', label: '메이크업', category: 'other',
+    hashtags: ['#메이크업', '#웨딩메이크업', '#데일리메이크업', '#메이크업샵'],
+    style: 'TPO별 룩 제안, 이목구비 살리는 포인트, 지속력·화사함',
+  },
+  {
+    key: 'tattoo', label: '타투', category: 'tattoo',
+    hashtags: ['#타투', '#타투이스트', '#tattoo', '#감성타투'],
+    style: '도안의 의미·감성, 디테일, 위생·아프지 않은 시술, 아티스트 색깔',
+  },
+  {
+    key: 'semi_permanent', label: '반영구', category: 'lip_blush',
+    hashtags: ['#반영구', '#반영구화장', '#자연반영구', '#반영구추천'],
+    style: '자연스러운 발색, 생기 더하는 효과, 번짐 없는 데일리, 지속력',
+  },
+  {
+    key: 'lip_blush', label: '입술반영구', category: 'lip_blush',
+    hashtags: ['#입술반영구', '#립블러쉬', '#입술반영구추천'],
+    style: '혈색·생기, 자연스러운 톤, 번짐 없음, 화장 시간 단축',
+  },
+  {
+    key: 'waxing', label: '왁싱', category: 'other',
+    hashtags: ['#왁싱', '#브라질리언왁싱', '#왁싱샵', '#위생왁싱'],
+    style: '위생·프라이버시 강조, 매끈함·관리 주기, 편안한 분위기',
+  },
+  {
+    key: 'skin_lifting', label: '피부·리프팅', category: 'other',
+    hashtags: ['#리프팅', '#피부탄력', '#동안관리', '#탄력관리'],
+    style: '탄력·윤곽 변화, 즉각 효과+누적 효과, 꾸준한 관리 권유',
+  },
+]
+
+export const SERVICE_LABELS: Record<string, string> = Object.fromEntries(
+  SERVICE_CATALOG.map((s) => [s.key, s.label]),
+)
+
+export function getServiceDef(key: string): ServiceDef | undefined {
+  return SERVICE_CATALOG.find((s) => s.key === key)
+}
+
 export const TONE_LABELS: Record<string, string> = {
   friendly: '친근한',
   professional: '전문적인',
@@ -65,6 +142,9 @@ export const TRIAL_EXPIRY_WARNING_DAYS = 7
 export const MAX_MEDIA_PER_POST = 10
 export const MAX_VIDEO_DURATION_SECONDS = 60
 export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024 // 100MB
+
+// 스타일 예시(few-shot) 계정당 최대 개수 — 프롬프트 크기/비용 가드레일
+export const STYLE_EXAMPLE_LIMIT = 5
 
 // 일일 생성 한도 (비용 가드레일)
 export const DAILY_AI_GENERATION_LIMIT = 20

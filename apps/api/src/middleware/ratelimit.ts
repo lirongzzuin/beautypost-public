@@ -14,23 +14,29 @@ function makeKey(prefix: string, id: string) {
 }
 
 async function checkLimit(key: string, limit: RateLimit): Promise<{ allowed: boolean; remaining: number }> {
-  if (!process.env.UPSTASH_REDIS_REST_URL) {
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  // Require a real https URL — treat empty/placeholder values as "no Redis"
+  // and fail open so a missing/misconfigured cache never blocks requests.
+  if (!url || !url.startsWith('http') || !token) {
     return { allowed: true, remaining: limit.requests - 1 }
   }
 
-  const { Redis } = await import('@upstash/redis')
-  const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  })
+  try {
+    const { Redis } = await import('@upstash/redis')
+    const redis = new Redis({ url, token })
 
-  const current = await redis.incr(key)
-  if (current === 1) {
-    await redis.expire(key, limit.windowSeconds)
+    const current = await redis.incr(key)
+    if (current === 1) {
+      await redis.expire(key, limit.windowSeconds)
+    }
+
+    const remaining = Math.max(0, limit.requests - current)
+    return { allowed: current <= limit.requests, remaining }
+  } catch {
+    // Never let rate-limiting infra take down the endpoint.
+    return { allowed: true, remaining: limit.requests - 1 }
   }
-
-  const remaining = Math.max(0, limit.requests - current)
-  return { allowed: current <= limit.requests, remaining }
 }
 
 // 60 requests per minute for auth endpoints
