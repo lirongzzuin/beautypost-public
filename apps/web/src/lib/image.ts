@@ -1,10 +1,11 @@
-// Browser-side image compression before upload.
-// Phone photos are often 3–10MB; resizing to a sane max dimension and
-// re-encoding as JPEG cuts upload payloads by 5–10× with no visible quality
-// loss for social posts. Falls back to the original file on any failure.
+// Browser-side image resize before upload — quality-first for beauty photos.
+// Phone photos are often 3000–4000px / 3–10MB. Instagram itself re-encodes every
+// upload down to ~1080px wide, so capping at 2048px with high JPEG quality is
+// visually lossless for social while still cutting upload payloads ~5–10×.
+// Falls back to the original file on any failure or if no size gain.
 
-const MAX_DIMENSION = 1600 // px — plenty for Instagram feed (1080) + retina
-const QUALITY = 0.82
+const MAX_DIMENSION = 2048 // px — 2× Instagram's display width + retina headroom
+const QUALITY = 0.92       // near-lossless for photos
 
 export async function compressImage(file: File): Promise<File> {
   // Skip tiny files and formats the canvas can't reliably decode (e.g. HEIC).
