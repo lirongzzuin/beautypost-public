@@ -4,7 +4,7 @@
   "installCommand": "pnpm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!assets/|sw.js|workbox-|manifest|icon-|favicon|apple-touch-).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|sw.js|workbox-|manifest|icon-|favicon|apple-touch-|privacy).*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.ts": {
