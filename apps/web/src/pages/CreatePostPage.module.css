@@ -101,6 +101,47 @@
   justify-content: center;
 }
 
+.orderBadge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reorderBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: rgba(0,0,0,0.45);
+}
+
+.reorderBtn {
+  flex: 1;
+  height: 26px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reorderBtn:disabled { opacity: 0.3; }
+.reorderBtn:active:not(:disabled) { background: rgba(255,255,255,0.2); }
+
 .addBtn {
   aspect-ratio: 1;
   border: 2px dashed var(--color-border);

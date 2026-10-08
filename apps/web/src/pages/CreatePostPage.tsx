@@ -41,6 +41,19 @@ export default function CreatePostPage() {
     setDraft((d) => ({ ...d, [key]: value }))
   }
 
+  // Reorder a media item by one position, keeping ids and previews in sync.
+  function moveMedia(index: number, dir: -1 | 1) {
+    const target = index + dir
+    if (target < 0 || target >= draft.mediaIds.length) return
+    setDraft((d) => {
+      const ids = [...d.mediaIds]
+      const previews = [...d.mediaPreviews]
+      ;[ids[index], ids[target]] = [ids[target]!, ids[index]!]
+      ;[previews[index], previews[target]] = [previews[target]!, previews[index]!]
+      return { ...d, mediaIds: ids, mediaPreviews: previews }
+    })
+  }
+
   // ─── Step 1: Media upload ────────────────────────────────────────────────────
 
   async function handleFiles(files: FileList | null) {
@@ -168,19 +181,40 @@ export default function CreatePostPage() {
         {step === 1 && (
           <div className={styles.step}>
             <h2 className={styles.stepTitle}>사진/영상을 올려주세요</h2>
-            <p className={styles.stepDesc}>최대 10개, 100MB 이하</p>
+            <p className={styles.stepDesc}>
+              최대 10개, 100MB 이하
+              {draft.mediaPreviews.length > 1 && ' · 화살표로 순서를 바꿀 수 있어요'}
+            </p>
 
             <div className={styles.mediaGrid}>
               {draft.mediaPreviews.map((url, i) => (
                 <div key={i} className={styles.mediaThumb}>
                   <img src={url} alt="" className={styles.thumbImg} />
+                  <span className={styles.orderBadge}>{i + 1}</span>
                   <button
                     className={styles.removeBtn}
+                    aria-label="삭제"
                     onClick={() => {
                       set('mediaIds', draft.mediaIds.filter((_, j) => j !== i))
                       set('mediaPreviews', draft.mediaPreviews.filter((_, j) => j !== i))
                     }}
                   >×</button>
+                  {draft.mediaPreviews.length > 1 && (
+                    <div className={styles.reorderBar}>
+                      <button
+                        className={styles.reorderBtn}
+                        aria-label="앞으로 이동"
+                        disabled={i === 0}
+                        onClick={() => moveMedia(i, -1)}
+                      >‹</button>
+                      <button
+                        className={styles.reorderBtn}
+                        aria-label="뒤로 이동"
+                        disabled={i === draft.mediaPreviews.length - 1}
+                        onClick={() => moveMedia(i, 1)}
+                      >›</button>
+                    </div>
+                  )}
                 </div>
               ))}
               {draft.mediaPreviews.length < 10 && (

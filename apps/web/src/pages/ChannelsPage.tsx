@@ -61,7 +61,7 @@ export default function ChannelsPage() {
         {/* Instagram */}
         <div className={styles.channelCard}>
           <div className={styles.channelInfo}>
-            <span className={styles.channelIcon}>📸</span>
+            <span className={`${styles.channelIcon} ${styles.igTile}`}><InstagramGlyph /></span>
             <div>
               <p className={styles.channelName}>인스타그램</p>
               {instagram?.status === 'connected'
@@ -91,7 +91,7 @@ export default function ChannelsPage() {
         {/* Naver blog — draft only */}
         <div className={`${styles.channelCard} ${styles.channelCardDisabled}`}>
           <div className={styles.channelInfo}>
-            <span className={styles.channelIcon}>📝</span>
+            <span className={`${styles.channelIcon} ${styles.naverTile}`}><NaverGlyph /></span>
             <div>
               <p className={styles.channelName}>네이버 블로그</p>
               <p className={styles.channelStatus}>초안 저장 전용 (자동 게시 준비 중)</p>
@@ -106,5 +106,26 @@ export default function ChannelsPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+// ─── Brand glyphs ──────────────────────────────────────────────────────────────
+
+function InstagramGlyph() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="5.2" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function NaverGlyph() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M5 4h4.6l4.9 7.1V4H19v16h-4.6L9.5 12.9V20H5V4Z" />
+    </svg>
   )
 }

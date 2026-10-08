@@ -2,9 +2,14 @@ import type { ReactElement } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import styles from './BottomNav.module.css'
 
+interface IconProps {
+  size: number
+  active?: boolean
+}
+
 interface NavItem {
   to: '/' | '/calendar' | '/posts/create' | '/customers' | '/settings'
-  icon: ({ size }: { size: number }) => ReactElement
+  icon: (props: IconProps) => ReactElement
   label: string
   isPrimary?: boolean
 }
@@ -12,14 +17,22 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', icon: HomeIcon, label: '홈' },
   { to: '/calendar', icon: CalendarIcon, label: '캘린더' },
-  { to: '/posts/create', icon: PlusIcon, label: '만들기', isPrimary: true },
+  { to: '/posts/create', icon: SparkleIcon, label: '만들기', isPrimary: true },
   { to: '/customers', icon: PeopleIcon, label: '고객' },
   { to: '/settings', icon: MoreIcon, label: '더보기' },
 ]
 
+// Full-screen focused flows render their own footer actions — the global tab
+// bar would overlap those buttons, so it is hidden on these routes.
+const HIDDEN_ON = ['/posts/create']
+
 export function BottomNav() {
   const { location } = useRouterState()
   const pathname = location.pathname
+
+  if (HIDDEN_ON.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return null
+  }
 
   return (
     <nav className={styles.nav} role="navigation" aria-label="메인 메뉴">
@@ -33,7 +46,7 @@ export function BottomNav() {
             aria-label={item.label}
             aria-current={isActive ? 'page' : undefined}
           >
-            <item.icon size={item.isPrimary ? 28 : 24} />
+            <item.icon size={item.isPrimary ? 26 : 24} active={isActive} />
             {!item.isPrimary && <span className={styles.label}>{item.label}</span>}
           </Link>
         )
@@ -42,44 +55,86 @@ export function BottomNav() {
   )
 }
 
-// ─── Icons (inline SVG for zero dependency) ──────────────────────────────────
+// ─── Icons ───────────────────────────────────────────────────────────────────
+// Refined stroke-based line icons (rounded caps/joins) to match the soft rose
+// aesthetic. Active tabs get a heavier stroke + a faint tinted fill rather than
+// the generic solid-glyph look.
 
-function HomeIcon({ size }: { size: number }) {
+const STROKE = 1.75
+const STROKE_ACTIVE = 2.1
+
+function base(active?: boolean) {
+  return {
+    fill: active ? 'currentColor' : 'none',
+    fillOpacity: active ? 0.12 : 0,
+    stroke: 'currentColor',
+    strokeWidth: active ? STROKE_ACTIVE : STROKE,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  }
+}
+
+function HomeIcon({ size, active }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...base(active)}>
+      <path d="M3.5 10.2 12 4l8.5 6.2" />
+      <path d="M5.5 9.2V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.2" />
+      <path d="M9.5 20v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5" fill="none" />
     </svg>
   )
 }
 
-function CalendarIcon({ size }: { size: number }) {
+function CalendarIcon({ size, active }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...base(active)}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M3.5 9.5h17" fill="none" />
+      <path d="M8 3v4M16 3v4" fill="none" />
+      <circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none" fillOpacity="1" />
+      <circle cx="12" cy="14" r="1.1" fill="currentColor" stroke="none" fillOpacity="1" />
     </svg>
   )
 }
 
-function PlusIcon({ size }: { size: number }) {
+// "만들기" = AI content creation → a sparkle conveys the magic/AI feel better
+// than a bare plus sign.
+function SparkleIcon({ size }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3c.4 3.4 1.6 4.6 5 5-3.4.4-4.6 1.6-5 5-.4-3.4-1.6-4.6-5-5 3.4-.4 4.6-1.6 5-5Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18.5 13.5c.2 1.6.8 2.2 2.5 2.5-1.7.3-2.3.9-2.5 2.5-.2-1.6-.8-2.2-2.5-2.5 1.7-.3 2.3-.9 2.5-2.5Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
 
-function PeopleIcon({ size }: { size: number }) {
+function PeopleIcon({ size, active }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...base(active)}>
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5.5 19.5c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5" />
     </svg>
   )
 }
 
-function MoreIcon({ size }: { size: number }) {
+function MoreIcon({ size, active }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden {...base(active)}>
+      <rect x="4" y="4" width="7" height="7" rx="2.2" />
+      <rect x="13" y="4" width="7" height="7" rx="2.2" />
+      <rect x="4" y="13" width="7" height="7" rx="2.2" />
+      <rect x="13" y="13" width="7" height="7" rx="2.2" />
     </svg>
   )
 }

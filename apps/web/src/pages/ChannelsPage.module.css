@@ -11,7 +11,20 @@
 .channelCardDisabled { opacity: 0.6; }
 
 .channelInfo { display: flex; align-items: center; gap: var(--space-3); }
-.channelIcon { font-size: 28px; }
+.channelIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.igTile {
+  background: linear-gradient(135deg, #feda75 0%, #fa7e1e 25%, #d62976 50%, #962fbf 75%, #4f5bd5 100%);
+}
+.naverTile { background: #03c75a; }
 .channelName { font-size: var(--font-size-base); font-weight: 600; }
 .channelHandle { font-size: var(--font-size-sm); color: var(--color-primary); }
 .channelStatus { font-size: var(--font-size-sm); color: var(--color-text-muted); }

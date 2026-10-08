@@ -15,7 +15,11 @@ export interface InstagramToken {
 }
 
 export async function getOAuthUrl(state: string): Promise<string> {
-  if (MOCK_MODE) return `${process.env.APP_URL}/mock-instagram-callback?state=${state}`
+  // In mock mode, skip the Meta dialog and jump straight to our own callback
+  // with a fake auth code so the full connect flow completes end-to-end.
+  if (MOCK_MODE) {
+    return `${process.env.APP_URL}/api/channels/instagram/callback?code=mock_code&state=${state}`
+  }
   const params = new URLSearchParams({
     client_id: process.env.INSTAGRAM_APP_ID!,
     redirect_uri: process.env.INSTAGRAM_REDIRECT_URI!,

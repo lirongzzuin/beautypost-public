@@ -7,7 +7,14 @@ import { grantReward } from '../lib/rewards.js'
 import { getOAuthUrl, exchangeCode } from '../lib/instagram.js'
 
 const channels = new Hono<{ Variables: AuthVariables }>()
-channels.use('*', authMiddleware)
+
+// Auth is applied per-route below. The OAuth *callback* must stay public:
+// it is reached via a top-level browser redirect (from Instagram or the mock
+// flow) that cannot carry the JWT Authorization header. Identity on the
+// callback is derived from the signed `state` param + Redis CSRF validation.
+channels.use('/', authMiddleware)
+channels.use('/instagram/oauth', authMiddleware)
+channels.use('/:channelType', authMiddleware)
 
 async function getRedis() {
   if (!process.env.UPSTASH_REDIS_REST_URL) return null
