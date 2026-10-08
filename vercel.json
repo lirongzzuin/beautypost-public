@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @beautypost/web build",
+  "buildCommand": "pnpm --filter @beautypost/shared build && pnpm --filter @beautypost/web build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
@@ -11,8 +11,8 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/publish-scheduled", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/check-expiry", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/publish-scheduled", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/check-expiry", "schedule": "0 10 * * *" },
     { "path": "/api/cron/reward-streak", "schedule": "0 0 * * 1" }
   ]
 }
