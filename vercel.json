@@ -3,10 +3,10 @@
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" }
+    { "source": "/api/(.*)", "destination": "/apps/api/api/index" }
   ],
   "functions": {
-    "api/index.ts": {
+    "apps/api/api/index.ts": {
       "maxDuration": 300
     }
   },
