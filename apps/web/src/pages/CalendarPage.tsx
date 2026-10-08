@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { api } from '~/api/client'
@@ -9,6 +9,31 @@ export default function CalendarPage() {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
+
+  function prevMonth() {
+    if (month === 0) { setYear((y) => y - 1); setMonth(11) } else setMonth((m) => m - 1)
+  }
+  function nextMonth() {
+    if (month === 11) { setYear((y) => y + 1); setMonth(0) } else setMonth((m) => m + 1)
+  }
+
+  // Horizontal swipe → change month (left = next, right = prev)
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]!
+    touchStart.current = { x: t.clientX, y: t.clientY }
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!touchStart.current) return
+    const t = e.changedTouches[0]!
+    const dx = t.clientX - touchStart.current.x
+    const dy = t.clientY - touchStart.current.y
+    touchStart.current = null
+    // Only treat as a month swipe if mostly horizontal and far enough.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      dx < 0 ? nextMonth() : prevMonth()
+    }
+  }
 
   const from = new Date(year, month, 1).toISOString()
   const to = new Date(year, month + 1, 0).toISOString()
@@ -39,16 +64,16 @@ export default function CalendarPage() {
     <div className="page-scroll">
       <div className={styles.container}>
         <div className={styles.header}>
-          <button onClick={() => { if (month === 0) { setYear(y => y-1); setMonth(11) } else setMonth(m => m-1) }}>‹</button>
+          <button onClick={prevMonth} aria-label="이전 달">‹</button>
           <h2 className={styles.monthTitle}>{year}년 {monthNames[month]}</h2>
-          <button onClick={() => { if (month === 11) { setYear(y => y+1); setMonth(0) } else setMonth(m => m+1) }}>›</button>
+          <button onClick={nextMonth} aria-label="다음 달">›</button>
         </div>
 
         <div className={styles.dayNames}>
           {dayNames.map((d) => <span key={d} className={styles.dayName}>{d}</span>)}
         </div>
 
-        <div className={styles.grid}>
+        <div className={styles.grid} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {cells.map((day, i) => {
             if (!day) return <div key={`empty-${i}`} />
             const dayPosts = postsByDay[day] ?? []

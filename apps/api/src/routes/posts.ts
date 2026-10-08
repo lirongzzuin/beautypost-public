@@ -159,6 +159,27 @@ posts.post('/:id/publish', entitlementMiddleware, async (c) => {
     return c.json({ code: 'VALIDATION_ERROR', message_ko: '이미 게시된 글이에요.' }, 400)
   }
 
+  // Validate Instagram prerequisites BEFORE flipping to 'publishing', so a
+  // misconfiguration leaves the post as a reusable draft instead of a dead end.
+  if (post.channels.includes('instagram')) {
+    const [channel] = await db
+      .select()
+      .from(schema.channelConnections)
+      .where(and(
+        eq(schema.channelConnections.userId, userId),
+        eq(schema.channelConnections.channelType, 'instagram'),
+        eq(schema.channelConnections.status, 'connected'),
+      ))
+      .limit(1)
+
+    if (!channel?.accessToken || !channel?.instagramUserId) {
+      return c.json({ code: 'INSTAGRAM_NOT_CONNECTED', message_ko: '인스타그램을 먼저 연결해주세요. (더보기 → 채널 연결)' }, 400)
+    }
+    if (post.mediaIds.length === 0) {
+      return c.json({ code: 'VALIDATION_ERROR', message_ko: '사진을 한 장 이상 올려주세요.' }, 400)
+    }
+  }
+
   await db.update(schema.posts).set({ status: 'publishing' }).where(eq(schema.posts.id, id))
 
   try {
@@ -232,8 +253,15 @@ posts.get('/stats/weekly', async (c) => {
 
   const goal = profile?.weeklyPostGoal ?? 3
 
-  const weekAgo = new Date()
-  weekAgo.setDate(weekAgo.getDate() - 7)
+  // Calendar week Sunday–Saturday, in KST (UTC+9) regardless of server timezone.
+  const KST_MS = 9 * 60 * 60 * 1000
+  const nowKst = new Date(Date.now() + KST_MS)
+  const dow = nowKst.getUTCDay() // 0=Sun … 6=Sat (in KST)
+  // UTC instant corresponding to KST 00:00 of this week's Sunday.
+  const sundayStartUtc = Date.UTC(nowKst.getUTCFullYear(), nowKst.getUTCMonth(), nowKst.getUTCDate() - dow) - KST_MS
+  const weekStart = new Date(sundayStartUtc)
+  const weekEnd = new Date(sundayStartUtc + 7 * 24 * 60 * 60 * 1000)
+  const kstDateStr = (d: Date) => new Date(d.getTime() + KST_MS).toISOString().slice(0, 10)
 
   const published = await db
     .select()
@@ -241,21 +269,21 @@ posts.get('/stats/weekly', async (c) => {
     .where(and(
       eq(schema.posts.userId, userId),
       eq(schema.posts.status, 'published'),
-      gte(schema.posts.publishedAt, weekAgo),
+      gte(schema.posts.publishedAt, weekStart),
+      lte(schema.posts.publishedAt, weekEnd),
     ))
 
   const days: { date: string; posted: boolean }[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().slice(0, 10)
-    const posted = published.some((p) => p.publishedAt?.toISOString().slice(0, 10) === dateStr)
+  for (let i = 0; i < 7; i++) {
+    const dayUtc = new Date(sundayStartUtc + i * 24 * 60 * 60 * 1000)
+    const dateStr = kstDateStr(dayUtc)
+    const posted = published.some((p) => p.publishedAt && kstDateStr(p.publishedAt) === dateStr)
     days.push({ date: dateStr, posted })
   }
 
-  // Calculate current streak
+  // Current streak = consecutive posted days ending today (going backward).
   let currentStreak = 0
-  for (let i = days.length - 1; i >= 0; i--) {
+  for (let i = dow; i >= 0; i--) {
     if (days[i]?.posted) currentStreak++
     else break
   }

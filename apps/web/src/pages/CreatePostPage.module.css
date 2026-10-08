@@ -345,6 +345,17 @@
   font-weight: 700;
 }
 
+.naverBtn {
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: #03c75a;
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
 .blogTitleInput {
   width: 100%;
   padding: 10px var(--space-3);

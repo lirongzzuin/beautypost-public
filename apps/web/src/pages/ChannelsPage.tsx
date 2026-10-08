@@ -93,16 +93,17 @@ export default function ChannelsPage() {
           <div className={styles.channelInfo}>
             <span className={`${styles.channelIcon} ${styles.naverTile}`}><NaverGlyph /></span>
             <div>
-              <p className={styles.channelName}>네이버 블로그</p>
-              <p className={styles.channelStatus}>초안 저장 전용 (자동 게시 준비 중)</p>
+              <p className={styles.channelName}>네이버 블로그 · 카카오 채널</p>
+              <p className={styles.channelStatus}>연동 없이 초안 복사 → 붙여넣기</p>
             </div>
           </div>
-          <span className={styles.comingSoon}>초안</span>
+          <span className={styles.comingSoon}>복사형</span>
         </div>
 
         <p className={styles.note}>
-          인스타그램 연결 시 비즈니스 계정이 필요해요.<br />
-          연결하면 +3일 무료 체험이 추가돼요 🎁
+          인스타그램만 자동 게시돼요 (비즈니스 계정 필요, 연결 시 +3일 🎁).<br />
+          네이버 블로그·카카오 채널은 공식 자동 게시 API가 없어,<br />
+          글 만들 때 <strong>초안을 복사해 직접 붙여넣는</strong> 방식으로 도와드려요.
         </p>
       </div>
     </div>

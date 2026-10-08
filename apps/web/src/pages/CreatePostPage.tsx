@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useToast } from '@beautypost/ui'
-import { api } from '~/api/client'
+import { api, ApiRequestError } from '~/api/client'
 import { compressImage } from '~/lib/image'
 import { POST_THEMES, CHANNEL_LABELS } from '@beautypost/shared'
 import styles from './CreatePostPage.module.css'
@@ -151,6 +151,19 @@ export default function CreatePostPage() {
     }
   }
 
+  // Naver Blog has no public self-serve publishing API, so we produce a
+  // ready-to-paste draft (title + body + tags) and copy it to the clipboard.
+  async function copyForNaver() {
+    const tags = draft.blogTags.length ? '\n\n' + draft.blogTags.map((t) => `#${t}`).join(' ') : ''
+    const text = `${draft.blogTitle}\n\n${draft.blogBody}${tags}`
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.show('네이버 블로그용 초안을 복사했어요. 블로그 글쓰기에 붙여넣으세요!')
+    } catch {
+      toast.show('복사에 실패했어요.', 'error')
+    }
+  }
+
   // Kakao Channel has no self-serve posting API, so we help by producing a
   // ready-to-paste channel message and copying it to the clipboard.
   async function copyForKakao() {
@@ -180,6 +193,7 @@ export default function CreatePostPage() {
   // ─── Step 4: Publish ─────────────────────────────────────────────────────────
 
   async function handlePublish(schedule: boolean) {
+    const toInstagram = draft.channels.includes('instagram')
     setPublishing(true)
     try {
       const { data: post } = await api.post<{ data: { id: string } }>('/posts', {
@@ -195,16 +209,19 @@ export default function CreatePostPage() {
         blogTags: draft.blogTags.length ? draft.blogTags : undefined,
       })
 
-      if (!schedule) {
-        await api.post(`/posts/${post.id}/publish`, {})
-        toast.show('게시됐어요! 🎉')
-      } else {
+      if (schedule) {
         toast.show('예약 게시가 설정됐어요 📅')
+      } else if (toInstagram) {
+        await api.post(`/posts/${post.id}/publish`, {})
+        toast.show('인스타그램에 게시됐어요! 🎉')
+      } else {
+        toast.show('게시물이 저장됐어요. 복사한 초안을 각 채널에 붙여넣어 주세요 📋')
       }
 
       navigate({ to: '/' })
-    } catch {
-      toast.show('게시에 실패했어요. 다시 시도해주세요.', 'error')
+    } catch (err) {
+      const msg = err instanceof ApiRequestError ? err.messageKo : '게시에 실패했어요. 다시 시도해주세요.'
+      toast.show(msg, 'error')
     } finally {
       setPublishing(false)
     }
@@ -213,7 +230,8 @@ export default function CreatePostPage() {
   const canNext1 = draft.mediaIds.length > 0 || step > 1
   const canNext2 = draft.theme !== ''
   const canNext3 = draft.caption.trim().length > 0
-  const canPublish = draft.channels.length > 0
+  // Always allowed in step 4: either publish to Instagram or just save the post.
+  const canPublish = true
 
   return (
     <div className={styles.container}>
@@ -413,6 +431,9 @@ export default function CreatePostPage() {
                       onChange={(e) => set('blogBody', e.target.value)}
                       rows={6}
                     />
+                    <button className={styles.naverBtn} type="button" onClick={copyForNaver}>
+                      📋 네이버 블로그에 복사해서 붙여넣기
+                    </button>
                   </div>
                 )}
               </div>
@@ -427,31 +448,21 @@ export default function CreatePostPage() {
           </div>
         )}
 
-        {/* Step 4: Channels & publish */}
+        {/* Step 4: Publish to Instagram (auto) + schedule */}
         {step === 4 && (
           <div className={styles.step}>
-            <h2 className={styles.stepTitle}>어디에 올릴까요?</h2>
-            <p className={styles.stepDesc}>채널을 선택하고 게시해주세요</p>
+            <h2 className={styles.stepTitle}>인스타그램에 올리기</h2>
+            <p className={styles.stepDesc}>인스타그램은 자동 게시돼요. 네이버·카카오는 3단계에서 초안을 복사해 붙여넣으세요.</p>
 
-            <div className={styles.channelList}>
-              {(Object.entries(CHANNEL_LABELS) as [string, string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  className={`${styles.channelBtn} ${draft.channels.includes(key) ? styles.channelSelected : ''}`}
-                  onClick={() => {
-                    const next = draft.channels.includes(key)
-                      ? draft.channels.filter((c) => c !== key)
-                      : [...draft.channels, key]
-                    set('channels', next)
-                  }}
-                  type="button"
-                >
-                  <span className={styles.channelGlyph} data-ch={key}>{key === 'instagram' ? <IgGlyph /> : <NaverGlyph />}</span>
-                  <span>{label}</span>
-                  {draft.channels.includes(key) && <span className={styles.checkMark}>✓</span>}
-                </button>
-              ))}
-            </div>
+            <button
+              className={`${styles.channelBtn} ${draft.channels.includes('instagram') ? styles.channelSelected : ''}`}
+              onClick={() => set('channels', draft.channels.includes('instagram') ? [] : ['instagram'])}
+              type="button"
+            >
+              <span className={styles.channelGlyph} data-ch="instagram"><IgGlyph /></span>
+              <span>{CHANNEL_LABELS.instagram}에 자동 게시</span>
+              {draft.channels.includes('instagram') && <span className={styles.checkMark}>✓</span>}
+            </button>
 
             <div className={styles.scheduleSection}>
               <label className={styles.label}>예약 발행 (선택)</label>
@@ -466,9 +477,10 @@ export default function CreatePostPage() {
             {/* Summary */}
             <div className={styles.summary}>
               <p className={styles.summaryItem}>
-                📷 사진 {draft.mediaIds.length}장 · {draft.theme} · {draft.channels.length}개 채널
+                사진 {draft.mediaIds.length}장 · {POST_THEMES.find((t) => t.id === draft.theme)?.label ?? draft.theme}
+                {draft.channels.includes('instagram') ? ' · 인스타 게시' : ' · 저장만'}
               </p>
-              <p className={styles.captionPreview}>{draft.caption.slice(0, 80)}...</p>
+              <p className={styles.captionPreview}>{draft.caption.slice(0, 80)}{draft.caption.length > 80 ? '…' : ''}</p>
             </div>
           </div>
         )}
@@ -504,7 +516,7 @@ export default function CreatePostPage() {
                 onClick={() => handlePublish(false)}
                 disabled={publishing || !canPublish}
               >
-                {publishing ? '게시 중...' : '지금 게시'}
+                {publishing ? '처리 중...' : draft.channels.includes('instagram') ? '지금 게시' : '저장하기'}
               </button>
             )}
           </div>
