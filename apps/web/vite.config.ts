@@ -25,6 +25,15 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Precache only hashed, immutable assets — NOT index.html. The app
+        // shell is always fetched fresh from the network (Vercel serves it with
+        // no-cache), so a new deploy's chunk hashes are picked up immediately
+        // and we never serve a stale shell that points at deleted chunks.
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.vercel\.blob\.store\/.*/,
