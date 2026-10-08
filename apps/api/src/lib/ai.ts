@@ -16,8 +16,12 @@ import { DEFAULT_HASHTAGS, DEFAULT_PROHIBITED_PHRASES } from '@beautypost/shared
 // Vercel serverless functions (no GPU, multi-GB weights, 300s limit) and a
 // dedicated GPU host costs far more than these free tiers at early scale.
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash'
-const GATEWAY_MODEL = process.env.AI_FALLBACK_MODEL ?? 'anthropic/claude-sonnet-4.6'
+// Defaults current as of 2026-10. Both are overridable via env.
+// Gemini 3.8 Flash — latest stable free-tier Flash (GA 2026-09-02). For the
+// strictest free guarantee use 'gemini-3.5-flash-lite'.
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash'
+// Gateway slugs use dots for versions: anthropic/claude-sonnet-5.5
+const GATEWAY_MODEL = process.env.AI_FALLBACK_MODEL ?? 'anthropic/claude-sonnet-5.5'
 
 interface Candidate {
   name: string
