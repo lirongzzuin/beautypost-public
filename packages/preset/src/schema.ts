@@ -14,9 +14,9 @@ export const Range = z
 // 단위는 사진·영상 공통의 정규화 값이며, photocraft(sharp)와 filmcraft(Lumetri) 어댑터가 각자 엔진 값으로 바꾼다.
 
 export const GRADE_BOUNDS = {
-  exposure: [-1, 1], // EV
-  temperature: [-30, 30], // + 따뜻하게 / - 차갑게
-  tint: [-30, 30], // + 마젠타 / - 그린
+  exposure: [-1.5, 1.5], // EV (자동 노출 교정이 어두운 사진을 충분히 되살리도록)
+  temperature: [-50, 50], // + 따뜻하게 / - 차갑게 (단위당 채널 이득 0.6%. 넓은 범위는 자동 화이트밸런스용)
+  tint: [-50, 50], // + 마젠타 / - 그린
   contrast: [-30, 30],
   saturation: [-40, 30],
   vibrance: [-30, 30],

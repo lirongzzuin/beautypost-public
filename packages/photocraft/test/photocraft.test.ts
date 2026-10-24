@@ -62,15 +62,39 @@ describe('색보정은 전역 연산만 (형태·부분 보정 없음)', () => {
     expect([...px]).toEqual([...copy])
   })
 
-  it('업종 한계로 자른다 (네일 채도 ≤ 10)', () => {
+  it('업종 한계는 스타일 값에만 (네일 채도 ≤ 10), 자동 교정은 그 위에 더한다', () => {
     const nail = reg.industry('nail')
-    expect(combineGrade(ZERO, { saturation: 40 }, nail.gradeLimits).saturation).toBe(10)
+    const style = { ...ZERO, saturation: 25, temperature: 20 }
+    const g = combineGrade(style, { temperature: 12 }, nail.gradeLimits)
+    expect(g.saturation).toBe(10) // 스타일 채도는 한계로
+    expect(g.temperature).toBe(8 + 12) // 스타일 20 → 한계 8, 여기에 푸른 조명 교정 +12
   })
 })
 
 describe('자동 밝기·화이트밸런스', () => {
+  it('어둡고 푸른 사진을 실제로 정상 쪽으로 되돌리고, 정상 사진은 거의 건드리지 않는다', async () => {
+    const lum = async (b: Buffer) => {
+      const { channels } = await sharp(b).stats()
+      const [r, g, bl] = channels.map((c) => c.mean)
+      return { y: 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!, rb: r! / bl! }
+    }
+    const normal = await synth(800, 1000, [200, 160, 140])
+    const dark = await sharp(normal).linear([0.38, 0.45, 0.62], [0, 0, 6]).jpeg().toBuffer()
+    const fix = async (b: Buffer) => (await processPhoto(b, { width: 800, height: 1000, grade: combineGrade(ZERO, autoPatch([await imageStats(b)])) })).data
+    const [n, d, fd] = [await lum(normal), await lum(dark), await lum(await fix(dark))]
+    expect(fd.y - d.y).toBeGreaterThan(40) // 확실히 밝아짐 (0~255)
+    expect(fd.y).toBeLessThan(n.y + 10) // 원래보다 밝게 과장하지 않음
+    // 색이 틀어진 정도(중립 R/B=1 에서 벗어난 정도)가 40% 이상 줄어든다. 원래 피부색은 모르므로 중립 쪽으로만 되돌린다
+    expect(Math.abs(1 - fd.rb)).toBeLessThan(Math.abs(1 - d.rb) * 0.6)
+    const fn = await lum(await fix(normal))
+    expect(Math.abs(fn.y - n.y)).toBeLessThan(12) // 정상 사진은 밝기도
+    expect(Math.abs(fn.rb - n.rb)).toBeLessThan(0.12) // 피부의 따뜻한 색도 거의 그대로
+  })
+
   it('어두운 사진은 밝게, 파란 사진은 따뜻하게, 초록 사진은 마젠타 쪽으로', () => {
     expect(autoPatch([{ mean: [0.2, 0.2, 0.2] }]).exposure).toBeGreaterThan(0)
+    expect(autoPatch([{ mean: [0.62, 0.6, 0.58] }]).exposure).toBe(0) // 밝게 잘 찍힌 사진은 어둡게 만들지 않음
+    expect(autoPatch([{ mean: [0.95, 0.93, 0.92] }]).exposure).toBeLessThan(0) // 확실한 과노출만 낮춤
     expect(autoPatch([{ mean: [0.4, 0.45, 0.6] }]).temperature).toBeGreaterThan(0)
     expect(autoPatch([{ mean: [0.4, 0.55, 0.4] }]).tint).toBeGreaterThan(0)
   })

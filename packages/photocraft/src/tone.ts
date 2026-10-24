@@ -14,16 +14,20 @@ const smooth = (a: number, b: number, v: number) => {
   return t * t * (3 - 2 * t)
 }
 
-/** 프리셋 값 + 자동 보정값을 더하고, 스키마 범위와 업종 한계로 자른다 */
-export function combineGrade(base: Grade, patch: GradePatch | null | undefined, limits: GradeLimits = {}): Grade {
-  const out = { ...base }
+/**
+ * 최종 보정값 = (스타일 값을 업종 한계로 자른 것) + 자동 교정값, 마지막에 스키마 범위로 자른다.
+ * 업종 한계는 "무드·조정으로 색을 과하게 입히는 것"을 막는 장치라 스타일에만 적용한다.
+ * 자동 교정(밝기·화이트밸런스)은 조명 때문에 틀어진 색을 원래대로 되돌리는 것이라 한계에 묶지 않는다.
+ */
+export function combineGrade(style: Grade, auto: GradePatch | null | undefined, limits: GradeLimits = {}): Grade {
+  const out = { ...style }
   for (const k of GRADE_KEYS) {
-    let v = out[k] + (patch?.[k] ?? 0)
-    const [lo, hi] = GRADE_BOUNDS[k]
-    v = Math.min(hi, Math.max(lo, v))
+    let v = out[k]
     const lim = limits[k]
     if (lim) v = Math.min(lim[1], Math.max(lim[0], v))
-    out[k] = Math.round(v * 1000) / 1000
+    v += auto?.[k] ?? 0
+    const [lo, hi] = GRADE_BOUNDS[k]
+    out[k] = Math.round(Math.min(hi, Math.max(lo, v)) * 1000) / 1000
   }
   return out
 }
@@ -80,22 +84,33 @@ export interface ImageStats {
 /**
  * 자동 밝기·화이트밸런스. 여러 장을 넘기면 "합친 통계"로 한 번만 계산한다 →
  * 비포·애프터에 똑같은 값을 쓰게 해서 보정으로 차이를 만들지 않는다.
- * 뷰티 사진은 의도된 따뜻한 조명이 많아 회색 기준 보정을 절반만 적용한다.
+ * 틀어진 만큼 비례해서 고치므로 이미 괜찮은 사진은 거의 그대로다. 샵의 의도된 따뜻한 조명을 남기려고
+ * 화이트밸런스는 회색 기준의 70% 만, 노출은 목표의 85% 만 맞춘다.
  */
 export function autoPatch(stats: ImageStats[]): GradePatch {
   if (!stats.length) return {}
   const avg = [0, 1, 2].map((c) => stats.reduce((t, s) => t + toLinear(s.mean[c as 0 | 1 | 2]), 0) / stats.length) as [number, number, number]
   const [r, g, b] = avg
   const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
-  const target = toLinear(0.47)
-  const ev = luma > 0 ? Math.log2(target / luma) * 0.6 : 0
-  const exposure = Math.max(-0.4, Math.min(0.4, ev))
+
+  // 노출: 어두우면 목표(0.5)의 85% 까지 밝게. 밝은 사진은 확실히 과노출(0.72 이상)일 때만 살짝 낮춘다
+  let exposure = 0
+  if (luma > 0 && luma < toLinear(0.5)) exposure = Math.min(1.5, Math.log2(toLinear(0.5) / luma) * 0.85)
+  else if (luma > toLinear(0.72)) exposure = Math.max(-1, Math.log2(toLinear(0.72) / luma) * 0.5)
+
+  // 화이트밸런스: 회색 기준 교정량의 70%. 단, 시술 부위 클로즈업은 피부색 때문에 원래 따뜻하게 보이므로
+  // 푸른 쪽(차가운 조명)은 그대로 고치고, 따뜻한 쪽은 피부의 자연스러운 따뜻함을 넘는 부분(텅스텐 조명)만 고친다
   const tR = r > 0 ? (g / r - 1) / 0.006 : 0
   const tB = b > 0 ? (1 - g / b) / 0.006 : 0
-  const temperature = Math.max(-12, Math.min(12, ((tR + tB) / 2) * 0.5))
+  const rawTemp = ((tR + tB) / 2) * 0.7
+  const NATURAL_WARMTH = 45 // 정상 조명의 피부 클로즈업에서 회색 기준이 내놓는 '차갑게' 값 정도는 무시
+  const temperature = rawTemp > 0 ? Math.min(40, rawTemp) : Math.max(-40, Math.min(0, rawTemp + NATURAL_WARMTH))
+
+  // 틴트(초록↔마젠타): 초록 조명(형광등)은 고치고, 반대쪽은 절반만
   const rb = (r + b) / 2
-  // 초록 이득 = 1 - tint·0.004 → 초록이 많으면(g > rb) tint 를 + 로
-  const tint = g > 0 ? Math.max(-8, Math.min(8, ((1 - rb / g) / 0.004) * 0.5)) : 0
+  const rawTint = g > 0 ? ((1 - rb / g) / 0.004) * 0.7 : 0
+  const tint = Math.max(-25, Math.min(25, rawTint > 0 ? rawTint : rawTint * 0.5))
+
   const round = (v: number) => Math.round(v * 100) / 100
   return { exposure: round(exposure), temperature: round(temperature), tint: round(tint) }
 }
