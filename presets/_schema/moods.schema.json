@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "order": {
+      "default": 100,
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "palette": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "text": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      },
+      "required": [
+        "primary",
+        "accent",
+        "background",
+        "text"
+      ]
+    },
+    "grade": {
+      "type": "object",
+      "properties": {
+        "exposure": {
+          "default": 0,
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "temperature": {
+          "default": 0,
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "tint": {
+          "default": 0,
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "contrast": {
+          "default": 0,
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "saturation": {
+          "default": 0,
+          "type": "number",
+          "minimum": -40,
+          "maximum": 30
+        },
+        "vibrance": {
+          "default": 0,
+          "type": "number",
+          "minimum": -30,
+          "maximum": 30
+        },
+        "highlights": {
+          "default": 0,
+          "type": "number",
+          "minimum": -40,
+          "maximum": 40
+        },
+        "shadows": {
+          "default": 0,
+          "type": "number",
+          "minimum": -40,
+          "maximum": 40
+        },
+        "fade": {
+          "default": 0,
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30
+        }
+      }
+    },
+    "photo": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "default": "none",
+          "type": "string",
+          "enum": [
+            "none",
+            "border",
+            "polaroid"
+          ]
+        },
+        "overlay": {
+          "type": "object",
+          "properties": {
+            "font": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+            },
+            "weight": {
+              "default": "Bold",
+              "type": "string",
+              "enum": [
+                "Regular",
+                "Medium",
+                "Bold"
+              ]
+            },
+            "color": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "stroke": {
+              "default": null,
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "background": {
+              "default": null,
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "position": {
+              "default": "lower-third",
+              "type": "string",
+              "enum": [
+                "top",
+                "center",
+                "lower-third",
+                "bottom"
+              ]
+            },
+            "animation": {
+              "default": "fade",
+              "type": "string",
+              "enum": [
+                "none",
+                "fade",
+                "pop",
+                "typewriter"
+              ]
+            }
+          },
+          "required": [
+            "font",
+            "color"
+          ]
+        }
+      },
+      "required": [
+        "overlay"
+      ]
+    },
+    "video": {
+      "type": "object",
+      "properties": {
+        "durationSec": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "cutSec": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "transition": {
+          "type": "string",
+          "enum": [
+            "cut",
+            "crossfade",
+            "whip",
+            "zoom",
+            "flash"
+          ]
+        },
+        "transitionSec": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "motion": {
+          "type": "string",
+          "enum": [
+            "static",
+            "slow-push",
+            "punch"
+          ]
+        },
+        "captions": {
+          "type": "object",
+          "properties": {
+            "main": {
+              "type": "object",
+              "properties": {
+                "font": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "weight": {
+                  "default": "Bold",
+                  "type": "string",
+                  "enum": [
+                    "Regular",
+                    "Medium",
+                    "Bold"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "stroke": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "background": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "position": {
+                  "default": "lower-third",
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "center",
+                    "lower-third",
+                    "bottom"
+                  ]
+                },
+                "animation": {
+                  "default": "fade",
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "fade",
+                    "pop",
+                    "typewriter"
+                  ]
+                }
+              },
+              "required": [
+                "font",
+                "color"
+              ]
+            },
+            "emphasis": {
+              "type": "object",
+              "properties": {
+                "font": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "weight": {
+                  "default": "Bold",
+                  "type": "string",
+                  "enum": [
+                    "Regular",
+                    "Medium",
+                    "Bold"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "stroke": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "background": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "position": {
+                  "default": "lower-third",
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "center",
+                    "lower-third",
+                    "bottom"
+                  ]
+                },
+                "animation": {
+                  "default": "fade",
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "fade",
+                    "pop",
+                    "typewriter"
+                  ]
+                }
+              },
+              "required": [
+                "font",
+                "color"
+              ]
+            },
+            "label": {
+              "type": "object",
+              "properties": {
+                "font": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                "weight": {
+                  "default": "Bold",
+                  "type": "string",
+                  "enum": [
+                    "Regular",
+                    "Medium",
+                    "Bold"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "stroke": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "background": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "position": {
+                  "default": "lower-third",
+                  "type": "string",
+                  "enum": [
+                    "top",
+                    "center",
+                    "lower-third",
+                    "bottom"
+                  ]
+                },
+                "animation": {
+                  "default": "fade",
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "fade",
+                    "pop",
+                    "typewriter"
+                  ]
+                }
+              },
+              "required": [
+                "font",
+                "color"
+              ]
+            }
+          },
+          "required": [
+            "main",
+            "emphasis",
+            "label"
+          ]
+        },
+        "music": {
+          "type": "object",
+          "properties": {
+            "genres": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "bpm": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "energy": {
+              "type": "string",
+              "enum": [
+                "low",
+                "mid",
+                "high"
+              ]
+            }
+          },
+          "required": [
+            "genres",
+            "bpm",
+            "energy"
+          ]
+        }
+      },
+      "required": [
+        "durationSec",
+        "cutSec",
+        "transition",
+        "transitionSec",
+        "motion",
+        "captions",
+        "music"
+      ]
+    },
+    "copy": {
+      "type": "object",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "enum": [
+            "calm",
+            "friendly",
+            "bright",
+            "premium",
+            "witty"
+          ]
+        },
+        "emojiPerParagraph": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "sentenceLength": {
+          "type": "string",
+          "enum": [
+            "short",
+            "medium"
+          ]
+        }
+      },
+      "required": [
+        "tone",
+        "emojiPerParagraph",
+        "sentenceLength"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "label",
+    "description",
+    "palette",
+    "grade",
+    "photo",
+    "video",
+    "copy"
+  ]
+}

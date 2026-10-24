@@ -1,0 +1,18 @@
+{
+  "$schema": "../../_schema/moods.schema.json",
+  "id": "clean-white", "version": 1, "label": "깔끔·화이트톤", "order": 10,
+  "description": "밝은 노출, 살짝 차가운 화이트밸런스, 낮은 채도. 흰 배경 박스 자막, 컷 1.2~2초, 짧은 크로스페이드",
+  "palette": { "primary": "#ffffff", "accent": "#b8a99a", "background": "#f7f5f2", "text": "#222222" },
+  "grade": { "exposure": 0.15, "temperature": -4, "contrast": -5, "saturation": -10, "highlights": -10, "shadows": 10 },
+  "photo": { "frame": "none", "overlay": { "font": "pretendard", "weight": "Medium", "color": "#222222", "background": "#ffffff", "position": "bottom" } },
+  "video": {
+    "durationSec": [15, 22], "cutSec": [1.2, 2.0], "transition": "crossfade", "transitionSec": 0.25, "motion": "slow-push",
+    "captions": {
+      "main": { "font": "pretendard", "weight": "Medium", "color": "#222222", "background": "#ffffff", "position": "lower-third" },
+      "emphasis": { "font": "pretendard", "weight": "Bold", "color": "#222222", "stroke": "#ffffff", "position": "center" },
+      "label": { "font": "pretendard", "weight": "Regular", "color": "#888888", "position": "top", "animation": "none" }
+    },
+    "music": { "genres": ["acoustic", "lofi"], "bpm": [80, 100], "energy": "low" }
+  },
+  "copy": { "tone": "calm", "emojiPerParagraph": [0, 1], "sentenceLength": "short" }
+}

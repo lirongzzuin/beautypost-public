@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "lip-blush", "label": "입술 반영구", "order": 60,
+  "serviceKeys": ["lip_blush"],
+  "keywordPatterns": ["{region} 입술반영구", "{region} 립블러쉬", "{region} 입술문신"],
+  "hashtagSeeds": ["#입술반영구", "#립블러쉬", "#입술문신", "#생기립"],
+  "vocabulary": ["혈색", "생기", "착색", "컬러 매칭", "입술 라인", "자연 발색"],
+  "extraBannedPhrases": ["번짐 없", "착색 없"],
+  "gradeLimits": { "temperature": [-8, 8], "tint": [-6, 6], "saturation": [-15, 6], "vibrance": [-15, 6] } }

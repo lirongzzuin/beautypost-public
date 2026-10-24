@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "skincare", "label": "피부관리", "order": 80,
+  "serviceKeys": ["skincare", "skin_lifting"],
+  "keywordPatterns": ["{region} 피부관리", "{region} 피부관리실", "{region} 에스테틱"],
+  "hashtagSeeds": ["#피부관리", "#피부관리실", "#에스테틱", "#수분관리", "#홈케어"],
+  "vocabulary": ["결", "톤", "수분", "진정", "관리 루틴", "1:1 상담"],
+  "extraBannedPhrases": ["주름 제거", "여드름 치료", "기미 제거"],
+  "gradeLimits": { "exposure": [-0.2, 0.25], "contrast": [-12, 8], "highlights": [-20, 10], "fade": [0, 8], "saturation": [-15, 6] } }

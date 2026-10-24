@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "waxing", "label": "왁싱", "order": 70,
+  "serviceKeys": ["waxing"],
+  "keywordPatterns": ["{region} 왁싱", "{region} 왁싱샵", "{region} 브라질리언왁싱"],
+  "hashtagSeeds": ["#왁싱", "#왁싱샵", "#브라질리언왁싱", "#위생왁싱", "#1인왁싱샵"],
+  "vocabulary": ["위생", "1회용", "프라이버시", "진정 케어", "관리 주기", "인그로운"],
+  "extraBannedPhrases": ["영구 제모", "통증 없"],
+  "gradeLimits": {} }

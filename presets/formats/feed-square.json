@@ -1,0 +1,4 @@
+{ "$schema": "../_schema/formats.schema.json", "id": "feed-square", "label": "피드 정사각형 (1:1)", "kind": "both",
+  "width": 1080, "height": 1080, "fps": 30, "durationSec": [10, 30],
+  "safeArea": { "top": 60, "bottom": 60, "side": 60 },
+  "encode": { "videoKbps": 8000, "audioKbps": 128 } }

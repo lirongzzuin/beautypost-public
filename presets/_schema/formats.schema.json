@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "video",
+        "photo",
+        "both"
+      ]
+    },
+    "width": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "height": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "fps": {
+      "default": 30,
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "durationSec": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "safeArea": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0
+        },
+        "side": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "side"
+      ]
+    },
+    "reserved": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "h": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y",
+          "w",
+          "h"
+        ]
+      }
+    },
+    "encode": {
+      "type": "object",
+      "properties": {
+        "videoKbps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "audioKbps": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "videoKbps",
+        "audioKbps"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "label",
+    "kind",
+    "width",
+    "height",
+    "safeArea"
+  ]
+}

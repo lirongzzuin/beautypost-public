@@ -1,0 +1,13 @@
+{ "$schema": "../_schema/policy.schema.json", "id": "ai-cliche", "label": "AI 티 나는 상투어", "severity": "warn",
+  "rules": [
+    { "match": "안녕하세요\\s*.{0,10}원장입니다", "kind": "regex", "reason": "인사로 시작하면 첫 줄 후킹이 약해요" },
+    { "match": "믿고 맡겨주세요", "reason": "상투적 문구" },
+    { "match": "많은 관심 부탁드립니다", "reason": "상투적 문구" },
+    { "match": "특별한 경험", "reason": "AI가 자주 쓰는 막연한 표현" },
+    { "match": "새로운 (나|당신)", "kind": "regex", "reason": "막연한 감성 표현" },
+    { "match": "자신감을 (되찾|선물)", "kind": "regex", "reason": "상투적 효과 표현" },
+    { "match": "놓치지 마세요", "reason": "광고 상투어" },
+    { "match": "완벽한", "reason": "과한 수식어" },
+    { "match": "!{2,}", "kind": "regex", "reason": "과한 감탄" },
+    { "match": "(\\p{Extended_Pictographic}\\s*){4,}", "kind": "regex", "reason": "이모지가 몰려 있어요" }
+  ] }

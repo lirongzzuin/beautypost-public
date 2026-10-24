@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "block",
+        "warn"
+      ]
+    },
+    "rules": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "match": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "default": "literal",
+            "type": "string",
+            "enum": [
+              "literal",
+              "regex"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "suggest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "match",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "label",
+    "severity",
+    "rules"
+  ]
+}

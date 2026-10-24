@@ -1,0 +1,18 @@
+{
+  "$schema": "../../_schema/moods.schema.json",
+  "id": "lovely-pastel", "version": 1, "label": "러블리·파스텔", "order": 40,
+  "description": "밝고 부드러운 파스텔 톤, 약간 핑크 틴트. 둥근 서체 자막이 톡 튀어나옴, 경쾌한 컷",
+  "palette": { "primary": "#ffd6e0", "accent": "#ff8fab", "background": "#fff5f7", "text": "#5a3d4a" },
+  "grade": { "exposure": 0.12, "temperature": 3, "tint": 4, "contrast": -8, "saturation": -6, "fade": 10 },
+  "photo": { "frame": "polaroid", "overlay": { "font": "jua", "weight": "Regular", "color": "#5a3d4a", "background": "#ffd6e0", "position": "bottom" } },
+  "video": {
+    "durationSec": [12, 20], "cutSec": [0.9, 1.6], "transition": "zoom", "transitionSec": 0.3, "motion": "slow-push",
+    "captions": {
+      "main": { "font": "jua", "weight": "Regular", "color": "#5a3d4a", "background": "#ffd6e0", "position": "lower-third", "animation": "pop" },
+      "emphasis": { "font": "jua", "weight": "Regular", "color": "#ffffff", "stroke": "#ff8fab", "position": "center", "animation": "pop" },
+      "label": { "font": "jua", "weight": "Regular", "color": "#ff8fab", "position": "top", "animation": "none" }
+    },
+    "music": { "genres": ["pop", "ukulele"], "bpm": [105, 122], "energy": "mid" }
+  },
+  "copy": { "tone": "bright", "emojiPerParagraph": [1, 2], "sentenceLength": "short" }
+}

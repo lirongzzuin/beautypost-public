@@ -1,0 +1,10 @@
+{ "$schema": "../_schema/policy.schema.json", "id": "exaggeration", "label": "과장 광고 표현", "severity": "warn",
+  "rules": [
+    { "match": "(국내|업계|지역)?\\s*(최고|최초|유일)", "kind": "regex", "reason": "객관적 근거 없이 최고·최초·유일을 쓰면 과장 광고가 될 수 있어요" },
+    { "match": "(No\\.?\\s*1|1위)", "kind": "regex", "reason": "순위 표현은 근거가 필요해요" },
+    { "match": "최저가", "reason": "가격 비교 근거가 필요해요" },
+    { "match": "무조건", "reason": "결과를 보장하는 표현" },
+    { "match": "확실한\\s*효과", "kind": "regex", "reason": "효과 보장 표현" },
+    { "match": "기적", "reason": "과장 표현" },
+    { "match": "(오늘|지금)만\\s*(이\\s*)?가격", "kind": "regex", "reason": "실제 기간이 아니면 거짓 긴박감이에요" }
+  ] }

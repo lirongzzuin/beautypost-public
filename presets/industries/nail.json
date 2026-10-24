@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "nail", "label": "네일아트", "order": 30,
+  "serviceKeys": ["nail"],
+  "keywordPatterns": ["{region} 네일", "{region} 네일아트", "{region} 젤네일"],
+  "hashtagSeeds": ["#네일아트", "#젤네일", "#네일디자인", "#시즌네일", "#손톱", "#네일스타그램"],
+  "vocabulary": ["컬러", "글리터", "자석젤", "그라데이션", "아트", "케어", "큐티클", "유지력"],
+  "extraBannedPhrases": ["손톱 손상 없"],
+  "gradeLimits": { "temperature": [-8, 8], "tint": [-6, 6], "saturation": [-15, 10], "vibrance": [-15, 10] } }

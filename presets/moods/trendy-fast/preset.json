@@ -1,0 +1,18 @@
+{
+  "$schema": "../../_schema/moods.schema.json",
+  "id": "trendy-fast", "version": 1, "label": "트렌디·빠른 컷", "order": 50,
+  "description": "선명한 대비와 생동감, 0.5~1초 빠른 컷, 플래시·휩 전환, 굵은 고딕 자막과 펀치줌",
+  "palette": { "primary": "#111111", "accent": "#d7ff3a", "background": "#111111", "text": "#ffffff" },
+  "grade": { "contrast": 10, "vibrance": 10, "saturation": 2, "highlights": -8 },
+  "photo": { "frame": "none", "overlay": { "font": "black-han-sans", "weight": "Regular", "color": "#ffffff", "stroke": "#111111", "position": "center" } },
+  "video": {
+    "durationSec": [10, 18], "cutSec": [0.5, 1.0], "transition": "flash", "transitionSec": 0.12, "motion": "punch",
+    "captions": {
+      "main": { "font": "black-han-sans", "weight": "Regular", "color": "#ffffff", "stroke": "#111111", "position": "lower-third", "animation": "pop" },
+      "emphasis": { "font": "black-han-sans", "weight": "Regular", "color": "#d7ff3a", "stroke": "#111111", "position": "center", "animation": "pop" },
+      "label": { "font": "pretendard", "weight": "Bold", "color": "#d7ff3a", "position": "top", "animation": "none" }
+    },
+    "music": { "genres": ["hiphop", "edm"], "bpm": [120, 140], "energy": "high" }
+  },
+  "copy": { "tone": "witty", "emojiPerParagraph": [0, 1], "sentenceLength": "short" }
+}

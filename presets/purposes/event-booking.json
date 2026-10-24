@@ -1,0 +1,16 @@
+{
+  "$schema": "../_schema/purposes.schema.json",
+  "id": "event-booking", "version": 1, "label": "이벤트·예약 안내", "order": 50,
+  "description": "혜택·기간·예약 방법을 명확하게. 거짓 긴박감 금지",
+  "legacyThemes": ["event", "booking_notice"],
+  "requiredMedia": [{ "role": "any", "min": 1, "max": 5 }],
+  "copyStructure": ["hook", "info", "cta"],
+  "video": { "slots": [
+    { "role": "hook", "durationSec": [1.5, 2.5], "source": "card", "caption": { "intent": "이벤트 제목", "maxChars": 14 } },
+    { "role": "detail", "durationSec": [3.0, 8.0], "source": "media", "mediaRole": "any", "caption": { "intent": "대상 시술", "maxChars": 16 } },
+    { "role": "info", "durationSec": [2.5, 4.0], "source": "card", "caption": { "intent": "혜택·기간", "maxChars": 24 } },
+    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "예약 방법", "maxChars": 20 } }
+  ] },
+  "photo": { "layout": "single" },
+  "sameGradeAcrossRoles": []
+}

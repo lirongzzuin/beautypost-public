@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "order": {
+      "default": 100,
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "legacyThemes": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requiredMedia": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "before",
+              "after",
+              "process",
+              "detail",
+              "shop",
+              "owner",
+              "review",
+              "product",
+              "any"
+            ]
+          },
+          "min": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "role",
+          "min",
+          "max"
+        ]
+      }
+    },
+    "copyStructure": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "hook",
+          "empathy",
+          "point",
+          "trust",
+          "cta",
+          "info",
+          "care-tip"
+        ]
+      }
+    },
+    "video": {
+      "type": "object",
+      "properties": {
+        "slots": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "hook",
+                  "before",
+                  "process",
+                  "after",
+                  "detail",
+                  "shop",
+                  "owner",
+                  "review",
+                  "info",
+                  "cta"
+                ]
+              },
+              "durationSec": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "media",
+                  "card"
+                ]
+              },
+              "mediaRole": {
+                "type": "string",
+                "enum": [
+                  "before",
+                  "after",
+                  "process",
+                  "detail",
+                  "shop",
+                  "owner",
+                  "review",
+                  "product",
+                  "any"
+                ]
+              },
+              "optional": {
+                "default": false,
+                "type": "boolean"
+              },
+              "caption": {
+                "type": "object",
+                "properties": {
+                  "intent": {
+                    "type": "string"
+                  },
+                  "maxChars": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "intent",
+                  "maxChars"
+                ]
+              }
+            },
+            "required": [
+              "role",
+              "durationSec",
+              "source"
+            ]
+          }
+        }
+      },
+      "required": [
+        "slots"
+      ]
+    },
+    "photo": {
+      "type": "object",
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": [
+            "single",
+            "carousel",
+            "before-after-split",
+            "grid"
+          ]
+        }
+      },
+      "required": [
+        "layout"
+      ]
+    },
+    "sameGradeAcrossRoles": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "before",
+          "after",
+          "process",
+          "detail",
+          "shop",
+          "owner",
+          "review",
+          "product",
+          "any"
+        ]
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "label",
+    "description",
+    "requiredMedia",
+    "copyStructure",
+    "video",
+    "photo"
+  ]
+}

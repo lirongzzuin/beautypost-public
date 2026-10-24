@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "eyebrow", "label": "반영구 눈썹", "order": 10,
+  "serviceKeys": ["eyebrow_tattoo", "semi_permanent"],
+  "keywordPatterns": ["{region} 눈썹문신", "{region} 반영구눈썹", "{region} 자연눈썹"],
+  "hashtagSeeds": ["#눈썹문신", "#반영구눈썹", "#자연눈썹", "#엠보눈썹", "#콤보눈썹", "#눈썹디자인"],
+  "vocabulary": ["얼굴형 맞춤 디자인", "결 표현", "엠보", "콤보", "쉐도우", "리터치", "눈썹 산", "자연스러운 결"],
+  "extraBannedPhrases": ["번짐 없", "지워지지 않", "통증 0"],
+  "gradeLimits": { "temperature": [-10, 10], "tint": [-8, 8], "saturation": [-20, 8], "contrast": [-15, 12] } }

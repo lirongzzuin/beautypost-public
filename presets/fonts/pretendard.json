@@ -1,0 +1,2 @@
+{ "$schema": "../_schema/fonts.schema.json", "id": "pretendard", "family": "Pretendard", "license": "OFL-1.1",
+  "source": "https://github.com/orioncactus/pretendard", "styles": ["Regular", "Medium", "Bold"] }

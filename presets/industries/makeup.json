@@ -1,0 +1,7 @@
+{ "$schema": "../_schema/industries.schema.json", "id": "makeup", "label": "메이크업", "order": 90,
+  "serviceKeys": ["makeup"],
+  "keywordPatterns": ["{region} 메이크업", "{region} 웨딩메이크업", "{region} 메이크업샵"],
+  "hashtagSeeds": ["#메이크업", "#웨딩메이크업", "#데일리메이크업", "#메이크업샵"],
+  "vocabulary": ["베이스", "톤 매칭", "음영", "포인트", "지속력", "TPO"],
+  "extraBannedPhrases": [],
+  "gradeLimits": { "temperature": [-10, 10], "saturation": [-15, 10] } }
