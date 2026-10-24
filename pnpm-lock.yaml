@@ -228,6 +228,25 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.5)(terser@5.51.2)(tsx@4.23.15)
 
+  packages/render:
+    dependencies:
+      '@beautypost/preset':
+        specifier: workspace:*
+        version: link:../preset
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.5)(terser@5.51.2)(tsx@4.23.15)
+
   packages/shared:
     devDependencies:
       typescript:
