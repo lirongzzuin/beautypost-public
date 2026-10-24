@@ -83,9 +83,12 @@ describe('레지스트리 검증', () => {
   })
 
   it('미리보기가 없으면 경고만 하고 통과한다', () => {
-    const { data, warnings } = buildRegistry(repoRaw())
+    const raw = repoRaw()
+    raw.moods[0]!.assets = [] // 썸네일 없는 새 무드
+    const { data, warnings } = buildRegistry(raw)
     expect(data).not.toBeNull()
     expect(warnings.some((w) => w.includes('thumb'))).toBe(true)
+    expect(buildRegistry(repoRaw()).warnings).toEqual([]) // 저장소의 무드는 모두 썸네일이 있다
   })
 })
 

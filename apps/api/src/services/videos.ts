@@ -3,7 +3,8 @@ import { generateVideoCopy, type MediaAnalysis } from '@beautypost/caption'
 import { RenderSpec, planVideo, type RenderMedia } from '@beautypost/render'
 import type { AiClient } from '@beautypost/ai'
 import { getRegistry } from '@beautypost/preset'
-import type { Db } from '../db/index.js'
+import { eq } from 'drizzle-orm'
+import { schema, type Db } from '../db/index.js'
 import { enqueue } from '../jobs/queue.js'
 import { ApiError } from './errors.js'
 import { assertConsent, blurBoxes, ensureAnalysis, type MediaRow } from './media.js'
@@ -25,8 +26,17 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
     throw new ApiError(400, 'FORMAT_INVALID', `영상으로 만들 수 없는 형식이에요: ${req.format}`)
   }
   const p = resolveFor(ctx, { purpose: req.purpose, industry: req.industry, mood: req.mood, format: req.format })
+
+  // 같은 요청을 연달아 누르면 작업을 하나만 (10분 단위). AI 자막을 만들기 전에 확인해 비용을 아낀다.
+  // 이미 실패한 작업은 막지 않는다 → "다시 시도"는 새 작업
+  const bucket = Math.floor(Date.now() / 600_000)
+  let key = createHash('sha256').update(JSON.stringify([ctx.profile.userId, rows.map((r) => r.id), req, bucket])).digest('hex')
+  const [dup] = await db.select().from(schema.jobs).where(eq(schema.jobs.idempotencyKey, key)).limit(1)
+  if (dup && dup.status !== 'failed') return { jobId: dup.id, status: dup.status, warnings: [], estimatedSeconds: 0, lines: {} }
+  if (dup) key = `${key}:${Date.now()}`
+
   for (const r of rows) await ensureAnalysis(db, ai, r, p.industry.label)
-  assertConsent(rows, { video: true })
+  assertConsent(rows)
 
   const media: RenderMedia[] = rows.map((r) => ({
     id: r.id,
@@ -74,9 +84,6 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
   )
   const spec = RenderSpec.parse({ ...base, lines: Object.fromEntries(Object.entries(lines).map(([k, v]) => [String(k), v])) })
 
-  // 같은 요청을 연달아 누르면 작업을 하나만 만든다 (10분 단위)
-  const bucket = Math.floor(Date.now() / 600_000)
-  const key = createHash('sha256').update(JSON.stringify([ctx.profile.userId, rows.map((r) => r.id), req, bucket])).digest('hex')
   const job = await enqueue(db, {
     type: 'render_reel',
     userId: ctx.profile.userId,

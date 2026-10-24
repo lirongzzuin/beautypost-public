@@ -61,7 +61,11 @@ test('원장님 콘텐츠 만들기 전체 흐름', async ({ page, request }) =>
   await inputs.nth(0).setInputFiles(`${MEDIA}/before1.jpg`)
   await inputs.nth(1).setInputFiles([`${MEDIA}/after1.jpg`, `${MEDIA}/after2.jpg`])
   await inputs.nth(2).setInputFiles(VIDEO)
+  // 영상은 항상 고객 얼굴이 나오는지 묻는다 → 다음 버튼은 답하기 전까지 꺼져 있다
+  await expect(page.getByText('이 영상에 고객 얼굴이 나오나요?')).toBeVisible({ timeout: 60_000 })
   const next = page.getByRole('button', { name: '다음' })
+  await expect(next).toBeDisabled()
+  await page.getByRole('button', { name: '얼굴 안 나와요' }).click()
   await expect(next).toBeEnabled({ timeout: 60_000 })
   await shot(page, '03-upload')
   await next.click()

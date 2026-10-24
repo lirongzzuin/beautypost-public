@@ -152,7 +152,12 @@ export function planVideo(spec: RenderSpec): VideoPlan {
       let start = 0
       let end = clamp(each, 0.8, Math.min(8, stillMax))
       if (m.kind === 'video') {
-        const D = m.durationSec ?? each
+        // 원본 끝을 넘지 않게 0.1초 여유 (등록된 길이는 내림한 값)
+        const D = Math.max(0, (m.durationSec ?? each) - 0.1)
+        if (D < 0.8) {
+          warnings.push('1초보다 짧은 영상은 영상에서 뺍니다')
+          return
+        }
         const len = Math.min(each, D)
         start = Math.max(0, (D - len) / 2) // 가운데 구간 (시작·끝 손떨림 피함)
         end = start + len

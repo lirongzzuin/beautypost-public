@@ -149,7 +149,9 @@ async function rewriteIfBlocked(ai: AiClient, text: string, findings: Finding[])
 }
 
 async function checkInstagram(ai: AiClient, ctx: DraftContext, d: InstagramDraft, tagOpts: Parameters<typeof normalizeHashtags>[1]) {
-  let draft = { ...d, hashtags: normalizeHashtags(d.hashtags, tagOpts) }
+  // 해시태그도 정책 검사: 금지(block) 표현이 든 태그는 뺀다
+  const tags = normalizeHashtags(d.hashtags, tagOpts).filter((t) => !hasBlocking(checkText(t, policyInput(ctx))))
+  let draft = { ...d, hashtags: tags }
   let findings = checkText(draft.caption, policyInput(ctx))
   let rewritten = false
   const fixed = await rewriteIfBlocked(ai, draft.caption, findings)

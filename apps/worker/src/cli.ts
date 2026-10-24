@@ -25,6 +25,7 @@ const r = await renderJob(spec, jobId, {
   workDir: resolve(process.env.WORK_DIR ?? '.data/renders'),
   filmcraftDir,
   apiUrl: process.env.RENDER_API_URL,
+  allowFileUrls: true,
   stage: (s, p) => console.log(`  [${String(p).padStart(3)}%] ${s}`),
 })
 console.log(JSON.stringify({ ...r, seconds: Math.round((Date.now() - t0) / 1000) }, null, 2))

@@ -22,8 +22,10 @@ export interface Storage {
   read(url: string): Promise<Buffer>
   /** 클라이언트가 직접 올릴 수 있는 1회용 업로드 권한 */
   createUploadTicket(key: string, opts: { contentType: string; maxBytes: number }): Promise<UploadTicket>
-  /** URL 이 이 저장소의 어떤 key 인지 (소유권 확인용). 이 저장소 URL 이 아니면 null */
+  /** URL 이 이 저장소의 어떤 key 인지 (경로 확인용). 이 저장소 형식의 URL 이 아니면 null */
   keyFromUrl(url: string): string | null
+  /** 그 URL 의 파일이 실제로 이 저장소(우리 스토어)에 있는지 — 다른 스토어·위조 URL 거부 */
+  exists(url: string): Promise<boolean>
 }
 
 /** 사용자·용도별 경로. 파일명은 무작위라 URL 을 추측할 수 없다. */
@@ -62,10 +64,21 @@ class BlobStorage implements Storage {
     return { mode: 'blob', key, token }
   }
 
+  async exists(url: string): Promise<boolean> {
+    // 우리 토큰으로 조회 → 다른 스토어의 파일이면 실패한다 (호스트 이름 규칙에 기대지 않음)
+    const { head } = await import('@vercel/blob')
+    try {
+      await head(url)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   keyFromUrl(url: string): string | null {
     try {
       const u = new URL(url)
-      if (!u.hostname.endsWith('.blob.vercel-storage.com')) return null
+      if (u.protocol !== 'https:' || !u.hostname.endsWith('.blob.vercel-storage.com')) return null
       return decodeURIComponent(u.pathname.replace(/^\//, ''))
     } catch {
       return null
@@ -125,13 +138,21 @@ class LocalStorage implements Storage {
   }
 
   keyFromUrl(url: string): string | null {
-    let path = url
+    // 로컬 저장소 URL 은 항상 상대 경로(/api/files/…). 다른 호스트·스킴은 받지 않는다
+    if (!url.startsWith(LOCAL_FILES_PREFIX)) return null
+    const path = url.split(/[?#]/)[0]!
+    return decodeURIComponent(path.slice(LOCAL_FILES_PREFIX.length))
+  }
+
+  async exists(url: string): Promise<boolean> {
+    const key = this.keyFromUrl(url)
+    if (!key) return false
     try {
-      path = new URL(url, 'http://local').pathname
+      await this.readKey(key)
+      return true
     } catch {
-      return null
+      return false
     }
-    return path.startsWith(LOCAL_FILES_PREFIX) ? decodeURIComponent(path.slice(LOCAL_FILES_PREFIX.length)) : null
   }
 
   readKey(key: string): Promise<Buffer> {

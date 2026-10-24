@@ -65,7 +65,7 @@ create.post('/photos', entitlementMiddleware, aiRateLimit, async (c) => {
   // 얼굴 여부는 분석으로 안다 → 동의 확인 전에 분석부터 (분석은 사진당 1회 캐시)
   const industry = getRegistry().industry(industryOf(ctx, b.industry))
   for (const r of rows) await ensureAnalysis(db, getAi(), r, industry.label)
-  assertConsent(rows, { video: false })
+  assertConsent(rows)
   return c.json({ data: await makePhotos(db, ctx, rows, b) })
 })
 
@@ -88,12 +88,19 @@ function presentJob(j: typeof schema.jobs.$inferSelect) {
     progress: j.progress,
     stage: j.stage,
     attempts: j.attempts,
-    error: j.status === 'failed' ? j.error : null,
+    error: j.status === 'failed' ? friendlyJobError(j.error) : null,
     result: j.status === 'completed' ? j.result : null,
     title: [payload.purpose?.label, payload.mood?.label, payload.format?.label].filter(Boolean).join(' · '),
     createdAt: j.createdAt,
     finishedAt: j.finishedAt,
   }
+}
+
+/** 작업자 오류 원문(로그·경로 포함)은 DB 에만 두고, 원장님께는 할 수 있는 일을 안내한다 */
+function friendlyJobError(raw: string | null): string {
+  if (raw && /영상 구성 오류|작업 입력|장면이 없/.test(raw)) return '이 사진·영상 구성으로는 영상을 만들 수 없었어요. 사진을 바꾸거나 다른 목적을 골라 다시 시도해 주세요.'
+  if (raw && /임대 만료|응답 없음/.test(raw)) return '영상 만드는 컴퓨터가 응답하지 않았어요. 잠시 후 다시 시도해 주세요.'
+  return '영상을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.'
 }
 
 create.get('/jobs', async (c) => {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, createWriteStream } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync, createWriteStream } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
@@ -20,6 +20,10 @@ export interface PipelineOptions {
   apiUrl?: string
   signal?: AbortSignal
   stage?: (name: string, progress: number) => Promise<void> | void
+  /** file:// 미디어 허용 (render-local CLI 만). 큐 작업은 http(s)·API 상대 경로만 */
+  allowFileUrls?: boolean
+  /** 육아 채널 자동화 잠금을 기다리는 최대 시간 (기본 30분) */
+  lockWaitMs?: number
 }
 
 export interface PipelineResult {
@@ -34,14 +38,16 @@ export interface PipelineResult {
 
 const EXT: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic', 'video/mp4': '.mp4', 'video/quicktime': '.mov' }
 
-async function download(url: string, dest: string, apiUrl?: string, signal?: AbortSignal): Promise<string> {
+async function download(url: string, dest: string, apiUrl?: string, signal?: AbortSignal, allowFile = false): Promise<string> {
   if (url.startsWith('file://')) {
+    if (!allowFile) throw new PermanentError(`허용되지 않는 미디어 주소예요: ${url.slice(0, 40)}`)
     const src = fileURLToPath(url)
     const file = dest + extname(src).toLowerCase()
     copyFileSync(src, file)
     return file
   }
   const full = url.startsWith('/') ? `${apiUrl ?? ''}${url}` : url
+  if (!/^https?:\/\//.test(full)) throw new PermanentError(`허용되지 않는 미디어 주소예요: ${url.slice(0, 40)}`)
   const res = await fetch(full, { signal })
   if (!res.ok || !res.body) throw new Error(`내려받기 실패 ${res.status}: ${full}`)
   const ext = extname(new URL(full).pathname) || EXT[res.headers.get('content-type') ?? ''] || ''
@@ -57,10 +63,14 @@ async function download(url: string, dest: string, apiUrl?: string, signal?: Abo
   return file
 }
 
-async function waitForBabyreelLock(filmcraftDir: string, signal?: AbortSignal): Promise<void> {
-  // 같은 맥에서 육아 채널 자동화(scripts/auto.sh)가 FilmCraft 를 쓰는 중이면 끝날 때까지 기다린다
+async function waitForBabyreelLock(filmcraftDir: string, signal?: AbortSignal, maxWaitMs = 30 * 60_000): Promise<void> {
+  // 같은 맥에서 육아 채널 자동화(scripts/auto.sh)가 FilmCraft 를 쓰는 중이면 끝날 때까지 기다린다.
+  // 잠금이 3시간보다 오래됐으면 남은 찌꺼기로 보고 무시, 최대 대기를 넘기면 재시도 가능한 실패로 (임대를 무한히 붙잡지 않게)
   const lock = join(filmcraftDir, 'data/auto.lock')
+  const until = Date.now() + maxWaitMs
   while (existsSync(lock)) {
+    if (Date.now() - statSync(lock).mtimeMs > 3 * 3600_000) return
+    if (Date.now() > until) throw new Error('육아 채널 자동화가 FilmCraft 를 오래 쓰고 있어 나중에 다시 시도해요')
     if (signal?.aborted) throw new Error('중단됨')
     // 기다리는 중에도 종료 신호에는 바로 반응한다
     await new Promise<void>((r) => {
@@ -112,7 +122,7 @@ export async function renderJob(raw: unknown, jobId: string, opts: PipelineOptio
   const used = [...new Map(plan.clips.filter((c) => c.media).map((c) => [c.media!.id, c.media!])).values()]
   let n = 0
   for (const m of used) {
-    let file = await download(m.url, join(mediaDir, m.id), opts.apiUrl, opts.signal)
+    let file = await download(m.url, join(mediaDir, m.id), opts.apiUrl, opts.signal, opts.allowFileUrls)
     if (m.kind === 'image' && m.blurFaces.length) {
       // 고객이 게시 동의 대신 '얼굴 가림'을 고른 사진
       const meta = await sharp(file).rotate().metadata()
@@ -127,7 +137,7 @@ export async function renderJob(raw: unknown, jobId: string, opts: PipelineOptio
   }
 
   await opts.stage?.('prepare', 22)
-  const logo = spec.logoUrl ? readFileSync(await download(spec.logoUrl, join(mediaDir, 'logo'), opts.apiUrl, opts.signal)) : null
+  const logo = spec.logoUrl ? readFileSync(await download(spec.logoUrl, join(mediaDir, 'logo'), opts.apiUrl, opts.signal, opts.allowFileUrls)) : null
   for (const c of plan.clips) {
     if (!c.card || paths[c.card.key]) continue
     const png = await renderCard({
@@ -145,7 +155,7 @@ export async function renderJob(raw: unknown, jobId: string, opts: PipelineOptio
   writeFileSync(join(jobDir, 'plan.json'), JSON.stringify(toFilmcraftPlan(spec, plan, paths, jobId), null, 2))
   writeFileSync(join(jobDir, 'profile.json'), JSON.stringify(toProfile(spec, (id) => reg.font(id).family), null, 2))
 
-  await waitForBabyreelLock(opts.filmcraftDir, opts.signal)
+  await waitForBabyreelLock(opts.filmcraftDir, opts.signal, opts.lockWaitMs)
   await opts.stage?.('render', 30)
   const { code, log } = await runFilmcraft(opts.filmcraftDir, jobDir, opts.signal)
   if (opts.signal?.aborted) throw new Error('작업이 중단됐어요')

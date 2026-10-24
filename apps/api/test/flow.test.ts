@@ -93,7 +93,7 @@ describe('직접 업로드 (큰 영상용)', () => {
     expect(put.status).toBe(200)
     const reg = await call('POST', '/upload/register', { key: t.json.data.key, url: t.json.data.url, contentType: 'video/mp4', size: 3, durationSeconds: 7.6 })
     expect(reg.status).toBe(201)
-    expect(reg.json.data.durationSeconds).toBe(8)
+    expect(reg.json.data.durationSeconds).toBe(7) // 내림 (실제보다 길게 적지 않음)
     const bad = await call('POST', '/upload/register', { key: 'uploads/other/x.mp4', url: '/api/files/uploads/other/x.mp4', contentType: 'video/mp4', size: 3 })
     expect(bad.status).toBe(403)
     const forged = await app.fetch(new Request(`http://local${t.json.data.uploadUrl.replace(/sig=\w+/, 'sig=00')}`, { method: 'PUT', body: new Uint8Array([1]) }))
@@ -151,8 +151,23 @@ describe('사진 보정', () => {
     const r1 = await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })
     expect(r1.status).toBe(409)
     expect(r1.json.code).toBe('CONSENT_REQUIRED')
+    expect((await call('PATCH', `/media/${id}`, { consent: 'not_needed' })).status).toBe(400) // 얼굴이 보이는데 '얼굴 없음' 불가
     expect((await call('PATCH', `/media/${id}`, { consent: 'blurred' })).status).toBe(200)
     expect((await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })).status).toBe(200)
+  })
+})
+
+describe('동의 상태 우회 방지', () => {
+  afterEach(() => {
+    faceMode = false
+  })
+  it("자동 '얼굴 없음' 사진의 역할을 바꾸면 다시 분석하고, 얼굴이 나오면 동의를 다시 받는다", async () => {
+    const id = await uploadPhoto('#c0a0a0', 'after')
+    expect((await call('POST', `/media/${id}/analyze`)).json.data.consent).toBe('not_needed')
+    faceMode = true
+    expect((await call('PATCH', `/media/${id}`, { role: 'before' })).json.data.consent).toBe('unknown')
+    const r = await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })
+    expect(r.json.code).toBe('CONSENT_REQUIRED')
   })
 })
 
@@ -210,7 +225,16 @@ describe('영상: 작업 등록 → 작업자 → 결과', () => {
     const f = await call('POST', `/worker/jobs/${c1.json.data.id}/fail`, { leaseToken: c1.json.data.leaseToken, error: '입력 오류', retryable: false }, W)
     expect(f.json.data.result).toBe('failed')
     const job = (await call('GET', `/create/jobs/${r.json.data.jobId}`)).json.data
-    expect(job).toMatchObject({ status: 'failed', error: '입력 오류' })
+    expect(job.status).toBe('failed')
+    expect(job.error).not.toContain('입력 오류') // 원문 대신 안내 문구
+    expect(job.error).toMatch(/다시 시도/)
+    // 실패한 작업은 "다시 시도"를 막지 않는다 → 새 작업
+    const again = await call('POST', '/create/videos', { mediaIds: [a], purpose: 'review', format: 'story' })
+    expect(again.status).toBe(202)
+    expect(again.json.data.jobId).not.toBe(r.json.data.jobId)
+    // 뒤 테스트에 영향 없게 정리
+    const c2 = await call('POST', '/worker/claim', { workerId: 'mac' }, W)
+    await call('POST', `/worker/jobs/${c2.json.data.id}/fail`, { leaseToken: c2.json.data.leaseToken, error: 'x', retryable: false }, W)
   })
 })
 

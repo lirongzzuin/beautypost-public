@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import { getDb, schema } from '../db/index.js'
-import { claim, complete, fail, getJob, heartbeat, release } from '../jobs/queue.js'
+import { claim, complete, fail, failExpired, getJob, heartbeat, release } from '../jobs/queue.js'
+import { eq } from 'drizzle-orm'
 import { getStorage, makeKey } from '../storage/index.js'
 import { ApiError } from '../services/errors.js'
 
@@ -29,7 +30,12 @@ const lost = () => new ApiError(409, 'LEASE_LOST', '이 작업의 임대가 끝�
 
 worker.post('/claim', async (c) => {
   const b = body(z.object({ workerId: z.string().min(1).max(100), leaseSec: z.number().int().min(30).max(900).optional() }), await c.req.json().catch(() => null))
-  const got = await claim(getDb(), b.workerId, { types: ['render_reel'], leaseSec: b.leaseSec })
+  const db = getDb()
+  // 작업자가 계속 죽어 재시도를 다 쓴 작업은 실패 처리하고 원장님께 알린다
+  for (const dead of await failExpired(db)) {
+    if (dead.userId) await notifyFailed(db, dead.userId, dead.id)
+  }
+  const got = await claim(db, b.workerId, { types: ['render_reel'], leaseSec: b.leaseSec })
   if (!got) return c.body(null, 204)
   const { job, leaseToken } = got
   return c.json({ data: { id: job.id, type: job.type, attempts: job.attempts, maxAttempts: job.maxAttempts, payload: job.payload, leaseToken } })
@@ -66,11 +72,15 @@ worker.post('/jobs/:id/complete', async (c) => {
   const storage = getStorage()
   const prefix = `renders/${job.userId ?? 'system'}/`
   for (const o of [b.result.video, b.result.cover]) {
-    if (!o.key.startsWith(prefix) || storage.keyFromUrl(o.url) !== o.key) throw new ApiError(400, 'VALIDATION_ERROR', '결과 파일 경로가 올바르지 않아요.')
+    if (!o.key.startsWith(prefix) || storage.keyFromUrl(o.url) !== o.key || !(await storage.exists(o.url))) {
+      throw new ApiError(400, 'VALIDATION_ERROR', '결과 파일 경로가 올바르지 않아요.')
+    }
   }
-  const payload = job.payload as { format?: { id?: string } }
-  let videoMediaId: string | null = null
-  if (job.status === 'processing' && job.userId) {
+  // 완료 전환(원자적)을 먼저 → 이번 호출이 완료시킨 경우에만 영상 등록·알림 (중복·고아 방지)
+  const state = await complete(db, job.id, b.leaseToken, { ...b.result })
+  if (state === 'not_owner') throw lost()
+  if (state === 'completed' && job.userId) {
+    const payload = job.payload as { format?: { id?: string } }
     const [v] = await db
       .insert(schema.media)
       .values({
@@ -79,11 +89,7 @@ worker.post('/jobs/:id/complete', async (c) => {
         sizeBytes: 0, status: 'ready', origin: 'render', formatId: payload.format?.id ?? null, consent: 'granted',
       })
       .returning()
-    videoMediaId = v!.id
-  }
-  const ok = await complete(db, job.id, b.leaseToken, { ...b.result, videoMediaId })
-  if (!ok) throw lost()
-  if (videoMediaId && job.userId) {
+    await db.update(schema.jobs).set({ result: { ...b.result, videoMediaId: v!.id } }).where(eq(schema.jobs.id, job.id))
     await db.insert(schema.notifications).values({
       userId: job.userId, event: 'reel_ready', title: '영상이 완성됐어요 🎬', body: '저장해서 인스타그램에 바로 올려 보세요.',
       route: '/library', params: { jobId: job.id },
@@ -98,12 +104,7 @@ worker.post('/jobs/:id/fail', async (c) => {
   const job = await getJob(db, c.req.param('id'))
   const r = await fail(db, c.req.param('id'), b.leaseToken, b.error, { retryable: b.retryable })
   if (r === 'not_owner') throw lost()
-  if (r === 'failed' && job?.userId) {
-    await db.insert(schema.notifications).values({
-      userId: job.userId, event: 'render_failed', title: '영상을 만들지 못했어요', body: '사진·영상을 바꿔서 다시 시도해 주세요.',
-      route: '/library', params: { jobId: job.id },
-    })
-  }
+  if (r === 'failed' && job?.userId) await notifyFailed(db, job.userId, job.id)
   return c.json({ data: { result: r } })
 })
 
@@ -114,3 +115,10 @@ worker.post('/jobs/:id/release', async (c) => {
 })
 
 export default worker
+
+async function notifyFailed(db: ReturnType<typeof getDb>, userId: string, jobId: string) {
+  await db.insert(schema.notifications).values({
+    userId, event: 'render_failed', title: '영상을 만들지 못했어요', body: '사진·영상을 바꿔서 다시 시도해 주세요.',
+    route: '/library', params: { jobId },
+  })
+}

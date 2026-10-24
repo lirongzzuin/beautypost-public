@@ -101,6 +101,9 @@ upload.post('/register', async (c) => {
   if (!mine(b.key, b.url) || (b.thumbnail && !mine(b.thumbnail.key, b.thumbnail.url))) {
     throw new ApiError(403, 'AUTH_FORBIDDEN', '이 파일을 등록할 수 없어요.')
   }
+  if (!(await storage.exists(b.url)) || (b.thumbnail && !(await storage.exists(b.thumbnail.url)))) {
+    throw new ApiError(400, 'UPLOAD_NOT_FOUND', '올린 파일을 찾을 수 없어요. 다시 올려 주세요.')
+  }
   const isVideo = ALLOWED_VIDEO_TYPES.has(b.contentType)
   if (!isVideo && !ALLOWED_IMAGE_TYPES.has(b.contentType)) throw new ApiError(400, 'MEDIA_INVALID_FORMAT', '지원하지 않는 파일 형식이에요.')
   const [row] = await getDb()
@@ -108,7 +111,8 @@ upload.post('/register', async (c) => {
     .values({
       userId, type: isVideo ? 'video' : 'image', originalUrl: b.url, storageKey: b.key, mimeType: b.contentType,
       thumbnailUrl: b.thumbnail?.url ?? null, width: b.width, height: b.height,
-      durationSeconds: b.durationSeconds !== undefined ? Math.round(b.durationSeconds) : null,
+      // 내림: 실제보다 길게 적으면 영상 구성이 원본 끝을 넘어 렌더가 실패한다
+      durationSeconds: b.durationSeconds !== undefined ? Math.floor(b.durationSeconds) : null,
       sizeBytes: b.size, status: 'ready', role: b.role ?? null,
     })
     .returning()

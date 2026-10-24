@@ -55,7 +55,7 @@ describe('renderJob (가짜 filmcraft)', () => {
   it('내려받기 → 얼굴 가림 → 카드 → plan/profile → 결과 경로, 카드 구간의 멈춤 경고는 뺀다', async () => {
     const work = mkdtempSync(join(tmpdir(), 'work-'))
     const stages: string[] = []
-    const r = await renderJob(await spec(), 'job1', { workDir: work, filmcraftDir: fakeFilmcraft(), stage: (s) => void stages.push(s) })
+    const r = await renderJob(await spec(), 'job1', { workDir: work, filmcraftDir: fakeFilmcraft(), stage: (s) => void stages.push(s), allowFileUrls: true })
     expect(r.duration).toBe(18.2)
     expect(readFileSync(r.video, 'utf8')).toBe('video')
     expect(r.qa).toEqual(['1.0~3.5s 화면이 멈춰 있습니다 (2.5s, 끊겨 보임)']) // 15~18s 는 예약 카드 → 제외
@@ -81,8 +81,8 @@ describe('renderJob (가짜 filmcraft)', () => {
 
   it('filmcraft 의 plan 오류는 재시도 안 함, 그 밖의 실패는 재시도 대상', async () => {
     const w = mkdtempSync(join(tmpdir(), 'work-'))
-    await expect(renderJob(await spec(), 'p', { workDir: w, filmcraftDir: fakeFilmcraft('plan-error') })).rejects.toBeInstanceOf(PermanentError)
-    const crash = renderJob(await spec(), 'c', { workDir: w, filmcraftDir: fakeFilmcraft('crash') })
+    await expect(renderJob(await spec(), 'p', { workDir: w, filmcraftDir: fakeFilmcraft('plan-error'), allowFileUrls: true })).rejects.toBeInstanceOf(PermanentError)
+    const crash = renderJob(await spec(), 'c', { workDir: w, filmcraftDir: fakeFilmcraft('crash'), allowFileUrls: true })
     await expect(crash).rejects.toThrow(/filmcraft 실패 \(코드 3\)/)
     await expect(crash).rejects.not.toBeInstanceOf(PermanentError)
     expect(existsSync(join(w, 'c', 'filmcraft.log'))).toBe(true)
@@ -93,8 +93,20 @@ describe('renderJob (가짜 filmcraft)', () => {
     mkdirSync(join(fc, 'data/auto.lock'), { recursive: true })
     const ctrl = new AbortController()
     setTimeout(() => ctrl.abort(), 200)
-    await expect(renderJob(await spec(), 'l', { workDir: mkdtempSync(join(tmpdir(), 'w-')), filmcraftDir: fc, signal: ctrl.signal })).rejects.toThrow(/중단/)
+    await expect(renderJob(await spec(), 'l', { workDir: mkdtempSync(join(tmpdir(), 'w-')), filmcraftDir: fc, signal: ctrl.signal, allowFileUrls: true })).rejects.toThrow(/중단/)
   })
+
+  it('큐 작업은 file:// 미디어를 거부한다 (로컬 파일 읽기 방지)', async () => {
+    await expect(renderJob(await spec(), 'f', { workDir: mkdtempSync(join(tmpdir(), 'w-')), filmcraftDir: fakeFilmcraft() })).rejects.toThrow(/허용되지 않는 미디어 주소/)
+  })
+
+  it('잠금이 오래 안 풀리면 최대 대기 후 재시도 가능한 실패', async () => {
+    const fc = fakeFilmcraft()
+    mkdirSync(join(fc, 'data/auto.lock'), { recursive: true })
+    const err = await renderJob(await spec(), 'm', { workDir: mkdtempSync(join(tmpdir(), 'w-')), filmcraftDir: fc, allowFileUrls: true, lockWaitMs: 50 }).catch((e) => e)
+    expect(String(err)).toMatch(/나중에 다시/)
+    expect(err).not.toBeInstanceOf(PermanentError)
+  }, 15_000)
 })
 
 describe('ensureFonts', () => {

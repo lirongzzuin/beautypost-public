@@ -33,6 +33,6 @@ export interface Choices {
 export function needsConsent(item: Item): boolean {
   const m = item.media
   if (!m || item.analyzing || m.consent !== 'unknown') return false
-  // 대표 화면을 못 읽은 영상은 얼굴이 나오는지 원장님께 물어본다
-  return (m.faces?.length ?? 0) > 0 || (m.type === 'video' && !m.analysis)
+  // 영상은 한 장면만 보고 얼굴이 없다고 할 수 없어서 항상 원장님께 묻는다. 사진은 얼굴이 보일 때만
+  return m.type === 'video' || (m.faces?.length ?? 0) > 0
 }

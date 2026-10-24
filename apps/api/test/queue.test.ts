@@ -28,8 +28,8 @@ describe('작업 큐', () => {
     expect(c?.job.status).toBe('processing')
     expect(c?.job.attempts).toBe(1)
     expect(await claim(db, 'w2')).toBeNull() // 같은 작업을 두 작업자가 가져가지 않음
-    expect(await complete(db, j.id, c!.leaseToken, { url: 'x' })).toBe(true)
-    expect(await complete(db, j.id, c!.leaseToken, { url: 'x' })).toBe(true) // 멱등
+    expect(await complete(db, j.id, c!.leaseToken, { url: 'x' })).toBe('completed')
+    expect(await complete(db, j.id, c!.leaseToken, { url: 'x' })).toBe('already') // 멱등 (후속 처리는 한 번만)
     expect((await getJob(db, j.id))?.status).toBe('completed')
   })
 
@@ -47,8 +47,8 @@ describe('작업 큐', () => {
     expect(second?.job.id).toBe(j.id)
     expect(second?.job.attempts).toBe(2)
     expect(await heartbeat(db, j.id, first!.leaseToken)).toBe(false)
-    expect(await complete(db, j.id, first!.leaseToken, {})).toBe(false)
-    expect(await complete(db, j.id, second!.leaseToken, { ok: 1 })).toBe(true)
+    expect(await complete(db, j.id, first!.leaseToken, {})).toBe('not_owner')
+    expect(await complete(db, j.id, second!.leaseToken, { ok: 1 })).toBe('completed')
   })
 
   it('하트비트가 임대를 연장하고 진행률을 남긴다', async () => {

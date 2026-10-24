@@ -8,7 +8,7 @@ import { aiRateLimit } from '../middleware/ratelimit.js'
 import { ApiError } from '../services/errors.js'
 import { getAi } from '../services/ai.js'
 import { industryOf, loadShop } from '../services/context.js'
-import { ensureAnalysis, ownedMedia } from '../services/media.js'
+import { consentAllowed, ensureAnalysis, ownedMedia } from '../services/media.js'
 import { moodPreviews } from '../services/photos.js'
 
 // 올린 사진·영상: 역할(비포·애프터…), 게시 동의, 비전 분석, 무드 미리보기
@@ -29,11 +29,16 @@ media.patch('/:id', async (c) => {
   const db = getDb()
   const [row] = await ownedMedia(db, userId, [c.req.param('id')!])
   const set: Partial<typeof schema.media.$inferInsert> = {}
-  if (body.data.role !== undefined) {
+  if (body.data.role !== undefined && body.data.role !== row!.role) {
     set.role = body.data.role
     set.analysis = null // 역할이 바뀌면 분석을 다시 (역할을 프롬프트에 넣기 때문)
+    // 자동으로 붙은 '얼굴 없음'은 다시 분석해서 판단 (고객 동의·가림은 원장님 결정이라 유지)
+    if (row!.consent === 'not_needed' && row!.type === 'image') set.consent = 'unknown'
   }
   if (body.data.consent) {
+    if (!consentAllowed(row!, body.data.consent)) {
+      throw new ApiError(400, 'CONSENT_INVALID', row!.type === 'video' ? '영상 속 얼굴 가림은 아직 지원하지 않아요. 고객 동의를 받았거나 얼굴이 안 나오는 영상만 쓸 수 있어요.' : '얼굴이 보이는 사진이에요. 게시 동의를 받았는지, 얼굴을 가릴지 골라 주세요.')
+    }
     set.consent = body.data.consent
     set.consentAt = body.data.consent === 'unknown' ? null : new Date()
   }

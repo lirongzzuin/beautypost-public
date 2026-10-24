@@ -58,6 +58,8 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
   const buffers = await Promise.all(images.map((r) => readMedia(r)))
   const auto = autoPatch(await decodable(() => Promise.all(buffers.map((b) => imageStats(b)))))
   const logo = await logoOf(db, ctx, req.useLogo)
+  // 노이즈 제거도 요청 전체에 한 번만 결정 → 비포·애프터를 똑같이 처리
+  const denoise = images.some(isDark)
   const storage = getStorage()
   const outputs: PhotoOutput[] = []
   let clamped: string[] = []
@@ -94,12 +96,12 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
         after: { data: buffers[images.indexOf(after)]!, focus: focusOf(after), blur: blurBoxes(after) },
         labels: { before: 'BEFORE', after: 'AFTER', style: p.mood.photo.overlay },
         background: p.mood.palette.background,
-        denoise: isDark(before) || isDark(after),
+        denoise,
       })
       await save(res, formatId, 'collage', [before, after], null)
     }
     for (const [i, row] of images.entries()) {
-      const res = await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), blur: blurBoxes(row), denoise: isDark(row) })
+      const res = await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), blur: blurBoxes(row), denoise })
       await save(res, formatId, 'single', [row], row.role)
     }
   }

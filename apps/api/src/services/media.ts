@@ -52,7 +52,11 @@ export async function ensureAnalysis(db: Db, ai: AiClient, row: MediaRow, indust
   const img = await analysisImage(row)
   if (!img) return null
   const { analysis } = await analyzeImage(ai, { data: img, mediaType: 'image/jpeg' }, { industryLabel, role: row.role })
-  const consent = row.consent === 'unknown' && analysis.faces.length === 0 ? 'not_needed' : row.consent
+  // 사진만 자동으로 '얼굴 없음' 처리. 영상은 대표 화면 한 장으로 판단할 수 없어 항상 원장님께 묻는다.
+  // 이전에 '얼굴 없음'이었는데 다시 분석해서 얼굴이 나오면 동의를 다시 받는다
+  let consent = row.consent
+  if (row.type === 'image' && consent === 'unknown' && analysis.faces.length === 0) consent = 'not_needed'
+  if (consent === 'not_needed' && analysis.faces.length > 0) consent = 'unknown'
   const [updated] = await db
     .update(schema.media)
     .set({ analysis: analysis as unknown as Record<string, unknown>, faces: analysis.faces, consent })
@@ -62,27 +66,35 @@ export async function ensureAnalysis(db: Db, ai: AiClient, row: MediaRow, indust
   return analysis
 }
 
-/** 얼굴이 보이거나, 영상인데 대표 화면이 없어 얼굴 여부를 알 수 없으면 true */
 export function hasFaces(row: MediaRow): boolean {
-  if (row.type === 'video' && !row.analysis) return true
   return (row.faces?.length ?? 0) > 0
 }
 
+/**
+ * 이 미디어를 결과물에 써도 되는가 (동의 규칙의 단일 기준).
+ * - 사진: 얼굴이 없거나, 고객 동의(granted) 또는 얼굴 가림(blurred)
+ * - 영상: 원장님이 직접 "얼굴 안 나와요"(not_needed) 또는 고객 동의(granted). 영상 얼굴 가림은 아직 없음
+ */
+export function consentOk(row: MediaRow): boolean {
+  if (row.type === 'video') return row.consent === 'granted' || row.consent === 'not_needed'
+  if (!hasFaces(row)) return row.consent !== 'unknown' || row.analysis != null
+  return row.consent === 'granted' || row.consent === 'blurred'
+}
+
+/** 원장님이 고를 수 있는 동의 값인지 (얼굴이 보이는 사진에 '얼굴 없음'은 안 됨, 영상 가림은 아직 없음) */
+export function consentAllowed(row: MediaRow, consent: string): boolean {
+  if (consent === 'not_needed') return row.type === 'video' || !hasFaces(row)
+  if (consent === 'blurred') return row.type === 'image'
+  return true
+}
+
 /** 얼굴이 나온 사진·영상은 게시 동의(또는 사진이면 얼굴 가림)가 있어야 결과물에 쓸 수 있다 */
-export function assertConsent(rows: MediaRow[], opts: { video: boolean }): void {
-  const need = rows.filter((r) => hasFaces(r) && !['granted', 'blurred', 'not_needed'].includes(r.consent))
+export function assertConsent(rows: MediaRow[]): void {
+  const need = rows.filter((r) => !consentOk(r))
   if (need.length) {
-    throw new ApiError(409, 'CONSENT_REQUIRED', '고객 얼굴이 보이는 사진이 있어요. 게시 동의를 확인하거나 얼굴을 가려 주세요.', {
+    throw new ApiError(409, 'CONSENT_REQUIRED', '고객 얼굴이 나오는지 확인이 필요한 사진·영상이 있어요. 게시 동의를 확인하거나 얼굴을 가려 주세요.', {
       mediaIds: need.map((r) => r.id),
     })
-  }
-  if (opts.video) {
-    const blurredVideo = rows.filter((r) => r.type === 'video' && hasFaces(r) && r.consent === 'blurred')
-    if (blurredVideo.length) {
-      throw new ApiError(409, 'VIDEO_BLUR_UNSUPPORTED', '영상 속 얼굴 가림은 아직 지원하지 않아요. 고객 동의를 받은 영상만 쓰거나 이 영상을 빼 주세요.', {
-        mediaIds: blurredVideo.map((r) => r.id),
-      })
-    }
   }
 }
 

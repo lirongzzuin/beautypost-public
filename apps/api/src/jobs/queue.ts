@@ -48,6 +48,16 @@ function rowsOf(res: unknown): Record<string, unknown>[] {
   return ((res as { rows?: Record<string, unknown>[] }).rows ?? (res as Record<string, unknown>[])) as Record<string, unknown>[]
 }
 
+/** 임대가 만료됐는데 재시도도 다 쓴 작업(작업자가 계속 죽는 작업)을 실패로 정리. 정리한 작업을 돌려준다 (알림용) */
+export async function failExpired(db: Db): Promise<{ id: string; userId: string | null }[]> {
+  const res = await db.execute(sql`
+    UPDATE jobs SET status = 'failed', error = COALESCE(error, '작업자 응답 없음 (임대 만료)'),
+      lease_owner = NULL, finished_at = now(), updated_at = now()
+    WHERE status = 'processing' AND lease_expires_at < now() AND attempts >= max_attempts
+    RETURNING id, user_id`)
+  return rowsOf(res).map((r) => ({ id: r.id as string, userId: (r.user_id as string | null) ?? null }))
+}
+
 /** 대기 중이거나 임대가 만료된 작업 하나를 원자적으로 임대한다. 없으면 null. */
 export async function claim(
   db: Db,
@@ -58,11 +68,7 @@ export async function claim(
   const types = opts.types?.length ? opts.types : null
   const leaseToken = `${workerId}/${randomBytes(6).toString('hex')}`
 
-  // 임대가 만료됐는데 재시도도 다 쓴 작업은 실패로 정리 (작업자가 계속 죽는 작업)
-  await db.execute(sql`
-    UPDATE jobs SET status = 'failed', error = COALESCE(error, '작업자 응답 없음 (임대 만료)'),
-      lease_owner = NULL, finished_at = now(), updated_at = now()
-    WHERE status = 'processing' AND lease_expires_at < now() AND attempts >= max_attempts`)
+  await failExpired(db)
 
   const res = await db.execute(sql`
     UPDATE jobs SET status = 'processing', lease_owner = ${leaseToken},
@@ -108,16 +114,24 @@ export async function heartbeat(
   return rows.length > 0
 }
 
-/** 완료 보고. 같은 임대로 두 번 보고해도 결과는 같다 (멱등). */
-export async function complete(db: Db, jobId: string, leaseToken: string, result: Record<string, unknown>): Promise<boolean> {
+/**
+ * 완료 보고. 같은 임대로 두 번 보고해도 결과는 같다 (멱등).
+ * 'completed' = 이번 호출이 완료로 바꿈 (후속 처리는 이 경우에만), 'already' = 같은 임대로 이미 완료, 'not_owner' = 임대를 잃음
+ */
+export async function complete(
+  db: Db,
+  jobId: string,
+  leaseToken: string,
+  result: Record<string, unknown>,
+): Promise<'completed' | 'already' | 'not_owner'> {
   const rows = await db
     .update(schema.jobs)
     .set({ status: 'completed', result, progress: 100, stage: 'done', error: null, finishedAt: new Date(), updatedAt: new Date() })
     .where(owns(jobId, leaseToken))
     .returning({ id: schema.jobs.id })
-  if (rows.length) return true
+  if (rows.length) return 'completed'
   const [job] = await db.select().from(schema.jobs).where(eq(schema.jobs.id, jobId)).limit(1)
-  return job?.status === 'completed' && job.leaseOwner === leaseToken
+  return job?.status === 'completed' && job.leaseOwner === leaseToken ? 'already' : 'not_owner'
 }
 
 /** 실패 보고. 재시도 가능하고 횟수가 남았으면 백오프 후 대기열로, 아니면 failed. */
