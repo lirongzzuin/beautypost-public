@@ -37,6 +37,7 @@ async function runOne(job: ClaimedJob): Promise<void> {
   let progress = 1
   let stage = 'start'
   let lost = false
+  let lastReport = 0
   const beat = setInterval(() => {
     api.heartbeat(job, progress, stage).catch((e) => {
       if (e instanceof LeaseLostError) {
@@ -54,8 +55,14 @@ async function runOne(job: ClaimedJob): Promise<void> {
       apiUrl: cfg.apiUrl,
       signal: abort.signal,
       stage: (s, p) => {
+        const changed = s !== stage
         stage = s
         progress = p
+        // 단계가 바뀌면 바로 알린다 (원장님 화면의 진행률). 너무 잦지 않게 3초 간격
+        if (changed && Date.now() - lastReport > 3000) {
+          lastReport = Date.now()
+          api.heartbeat(job, progress, stage).catch(() => undefined)
+        }
       },
     })
     stage = 'upload'

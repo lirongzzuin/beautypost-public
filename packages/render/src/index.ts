@@ -146,9 +146,11 @@ export function planVideo(spec: RenderSpec): VideoPlan {
       list = list.slice(0, maxCount)
     }
     const each = slotDur / list.length
+    // 사진 한 장을 너무 오래 보여 주면 멈춘 화면처럼 보인다 → 무드 최대 컷 길이의 1.6배까지만 (모자라는 길이는 영상이 짧아짐)
+    const stillMax = Math.max(2.5, mood.video.cutSec[1] * 1.6)
     list.forEach((m, j) => {
       let start = 0
-      let end = clamp(each, 0.8, 8)
+      let end = clamp(each, 0.8, Math.min(8, stillMax))
       if (m.kind === 'video') {
         const D = m.durationSec ?? each
         const len = Math.min(each, D)
