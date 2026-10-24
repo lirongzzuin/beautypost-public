@@ -20,6 +20,7 @@ export const notificationEventEnum = pgEnum('notification_event', [
   'post_published', 'post_failed', 'reel_ready',
   'instagram_token_expiring', 'trial_expiring',
   'weekly_goal_achieved', 'reward_granted',
+  'render_failed',
 ])
 
 // ─── Users ────────────────────────────────────────────────────────────────────

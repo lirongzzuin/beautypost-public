@@ -1,0 +1,1 @@
+ALTER TYPE "public"."notification_event" ADD VALUE 'render_failed';

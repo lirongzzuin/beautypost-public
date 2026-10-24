@@ -29,6 +29,13 @@
       "when": 1792805933447,
       "tag": "0003_presets_generation",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792807573221,
+      "tag": "0004_render_failed_event",
+      "breakpoints": true
     }
   ]
 }

@@ -29,7 +29,14 @@ function loadEnv() {
 loadEnv()
 
 import { serve } from '@hono/node-server'
-import app from './app.js'
+import { isLocalDbUrl, openLocalDb } from './db/local.js'
+
+// pnpm dev:local → DATABASE_URL=pglite:… : 운영 DB 대신 로컬 PGlite (마이그레이션 자동 적용)
+if (isLocalDbUrl(process.env.DATABASE_URL)) {
+  await openLocalDb(process.env.DATABASE_URL!)
+  console.log(`로컬 DB: ${process.env.DATABASE_URL}`)
+}
+const { default: app } = await import('./app.js')
 
 const port = Number(process.env.PORT ?? 3000)
 

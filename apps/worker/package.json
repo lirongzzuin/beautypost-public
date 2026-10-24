@@ -1,0 +1,26 @@
+{
+  "name": "@beautypost/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "render-local": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@beautypost/photocraft": "workspace:*",
+    "@beautypost/preset": "workspace:*",
+    "@beautypost/render": "workspace:*",
+    "@vercel/blob": "^0.27.0",
+    "sharp": "^0.34.4",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "*",
+    "vitest": "^3.2.4"
+  }
+}

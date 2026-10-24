@@ -86,3 +86,6 @@ Session.vim
 tmp/
 temp/
 .env*
+
+# 로컬 개발 데이터 (PGlite DB, 로컬 저장소, 렌더 작업 폴더)
+.data/

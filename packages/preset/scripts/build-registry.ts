@@ -56,6 +56,15 @@ export function loadRaw(dir: string): { raw: RawPresets; prompts: Record<string,
   return { raw, prompts }
 }
 
+function assets(data: { previews: Record<string, { thumb: string | null; sample: string | null }> }): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const p of Object.values(data.previews)) {
+    // 샘플 영상은 크기가 커서 번들에 넣지 않는다 (썸네일만)
+    if (p.thumb) out[p.thumb] = readFileSync(join(PRESETS, p.thumb)).toString('base64')
+  }
+  return out
+}
+
 function main(): void {
   const { raw, prompts } = loadRaw(PRESETS)
   const { data, errors, warnings } = buildRegistry(raw)
@@ -88,7 +97,9 @@ function main(): void {
     `// 자동 생성 파일 — 직접 고치지 말 것. 원본: presets/ (scripts/build-registry.ts)\n` +
       `import type { RawPresets } from '../registry.js'\n\n` +
       `export const RAW_PRESETS: RawPresets = ${JSON.stringify(raw, null, 2)}\n\n` +
-      `export const RAW_PROMPTS: Record<string, string> = ${JSON.stringify(prompts, null, 2)}\n`,
+      `export const RAW_PROMPTS: Record<string, string> = ${JSON.stringify(prompts, null, 2)}\n\n` +
+      `// 미리보기 이미지 (base64). API 가 /api/presets/assets/* 로 내보낸다\n` +
+      `export const RAW_ASSETS: Record<string, string> = ${JSON.stringify(assets(data), null, 2)}\n`,
   )
   const counts = (Object.keys(KINDS) as Kind[]).map((k) => `${k} ${data[k].length}`).join(' · ')
   console.log(`✓ 프리셋 레지스트리: ${counts} · prompts ${Object.keys(prompts).length}`)

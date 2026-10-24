@@ -17,4 +17,4 @@ export function getRegistry(): Registry {
   return _registry
 }
 
-export { RAW_PROMPTS } from './generated/registry.js'
+export { RAW_PROMPTS, RAW_ASSETS } from './generated/registry.js'

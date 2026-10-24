@@ -104,11 +104,11 @@ function cardFor(spec: RenderSpec, role: string, line: string): CardPlan {
   const bg = spec.mood.palette.background
   const lines: CardPlan['lines'] = []
   if (role === 'cta') {
-    lines.push({ text: spec.shop.name, style: { ...c.emphasis, color: spec.brandColor ?? c.emphasis.color }, scale: 0.085 })
-    if (line && line !== spec.shop.name) lines.push({ text: line, style: { ...c.main, background: null }, scale: 0.05 })
-    if (spec.shop.region) lines.push({ text: spec.shop.region, style: { ...c.label, background: null }, scale: 0.038 })
+    lines.push({ text: spec.shop.name, style: { ...c.emphasis, color: spec.brandColor ?? c.emphasis.color }, scale: 0.12 })
+    if (line && line !== spec.shop.name) lines.push({ text: line, style: { ...c.main, background: null }, scale: 0.062 })
+    if (spec.shop.region) lines.push({ text: spec.shop.region, style: { ...c.label, background: null }, scale: 0.048 })
   } else {
-    lines.push({ text: line || spec.industryLabel, style: { ...c.emphasis, background: null }, scale: role === 'hook' ? 0.085 : 0.06 })
+    lines.push({ text: line || spec.industryLabel, style: { ...c.emphasis, background: null }, scale: role === 'hook' ? 0.11 : 0.075 })
   }
   // 글자색이 배경과 같아 안 보이는 경우 (예: 흰 배경 + 흰 글자) 팔레트 글자색으로
   for (const l of lines) if (l.style.color.toLowerCase() === bg.toLowerCase()) l.style = { ...l.style, color: spec.mood.palette.text }
