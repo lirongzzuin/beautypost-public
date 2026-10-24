@@ -51,7 +51,7 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
     }
   }
 
-  async function setConsent(item: Item, consent: 'granted' | 'blurred') {
+  async function setConsent(item: Item, consent: 'granted' | 'blurred' | 'not_needed') {
     if (!item.media) return
     try {
       const media = await contentApi.patchMedia(item.media.id, { consent })
@@ -118,9 +118,14 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
             {list.filter(needsConsent).map((i) => (
               <div key={i.localId} className={styles.consentBox}>
                 <p>
-                  <strong>고객 얼굴이 보여요.</strong> 게시해도 되는지 확인해 주세요.
+                  {(i.media?.faces?.length ?? 0) > 0 ? (
+                    <><strong>고객 얼굴이 보여요.</strong> 게시해도 되는지 확인해 주세요.</>
+                  ) : (
+                    <><strong>이 영상에 고객 얼굴이 나오나요?</strong> 영상 내용을 미리 읽지 못했어요.</>
+                  )}
                 </p>
                 <div className={styles.consentBtns}>
+                  {!(i.media?.faces?.length) && <button type="button" onClick={() => setConsent(i, 'not_needed')}>얼굴 안 나와요</button>}
                   <button type="button" onClick={() => setConsent(i, 'granted')}>게시 동의 받았어요</button>
                   {i.kind === 'image' && (
                     <button type="button" onClick={() => setConsent(i, 'blurred')}>얼굴 가리고 쓸게요</button>

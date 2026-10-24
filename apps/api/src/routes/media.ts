@@ -18,7 +18,8 @@ media.use('*', authMiddleware)
 const Patch = z.object({
   role: z.enum(MEDIA_ROLES).nullable().optional(),
   // granted: 고객 게시 동의 확인 · blurred: 얼굴 가림으로 게시 · unknown: 되돌리기
-  consent: z.enum(['granted', 'blurred', 'unknown']).optional(),
+  // not_needed: 얼굴이 안 나온다고 원장님이 확인 (대표 화면을 못 읽은 영상)
+  consent: z.enum(['granted', 'blurred', 'not_needed', 'unknown']).optional(),
 })
 
 media.patch('/:id', async (c) => {

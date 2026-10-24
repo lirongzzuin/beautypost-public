@@ -32,5 +32,7 @@ export interface Choices {
 /** 얼굴이 보여 게시 동의(또는 가림)가 필요한지 */
 export function needsConsent(item: Item): boolean {
   const m = item.media
-  return !!m && (m.faces?.length ?? 0) > 0 && m.consent === 'unknown'
+  if (!m || item.analyzing || m.consent !== 'unknown') return false
+  // 대표 화면을 못 읽은 영상은 얼굴이 나오는지 원장님께 물어본다
+  return (m.faces?.length ?? 0) > 0 || (m.type === 'video' && !m.analysis)
 }

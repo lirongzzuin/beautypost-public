@@ -213,3 +213,29 @@ describe('영상: 작업 등록 → 작업자 → 결과', () => {
     expect(job).toMatchObject({ status: 'failed', error: '입력 오류' })
   })
 })
+
+// 이 묶음은 큐에 작업을 남기므로 맨 뒤에 (앞 테스트의 작업자 임대 순서에 끼어들지 않게)
+describe('처리할 수 없는 파일·알 수 없는 얼굴', () => {
+  it('서버가 못 푸는 사진(HEIC 등)은 이해할 수 있는 422 안내', async () => {
+    const t = await call('POST', '/upload/ticket', { filename: 'p.heic', contentType: 'image/heic', size: 10 })
+    await app.fetch(new Request(`http://local${t.json.data.uploadUrl}`, { method: 'PUT', body: new Uint8Array(Buffer.from('not-really-an-image')) }))
+    const reg = await call('POST', '/upload/register', { key: t.json.data.key, url: t.json.data.url, contentType: 'image/heic', size: 10, role: 'after' })
+    const r = await call('POST', `/media/${reg.json.data.id}/analyze`)
+    expect(r.status).toBe(422)
+    expect(r.json.message_ko).toContain('높은 호환성')
+  })
+
+  it('대표 화면이 없는 영상은 얼굴 여부를 확인받기 전엔 쓰지 않는다 → "얼굴 안 나와요" 후 진행', async () => {
+    const t = await call('POST', '/upload/ticket', { filename: 'v.mp4', contentType: 'video/mp4', size: 3 })
+    await app.fetch(new Request(`http://local${t.json.data.uploadUrl}`, { method: 'PUT', body: new Uint8Array([1, 2, 3]) }))
+    const v = (await call('POST', '/upload/register', { key: t.json.data.key, url: t.json.data.url, contentType: 'video/mp4', size: 3, durationSeconds: 6, role: 'process' })).json.data
+    const after = await uploadPhoto('#d8b0a0', 'after')
+    const before = await uploadPhoto('#a08070', 'before')
+    const body = { mediaIds: [before, after, v.id], purpose: 'before-after', format: 'story' }
+    const r1 = await call('POST', '/create/videos', body)
+    expect(r1.json.code).toBe('CONSENT_REQUIRED')
+    expect(r1.json.details.mediaIds).toEqual([v.id])
+    expect((await call('PATCH', `/media/${v.id}`, { consent: 'not_needed' })).status).toBe(200)
+    expect((await call('POST', '/create/videos', body)).status).toBe(202)
+  })
+})

@@ -27,6 +27,7 @@ export interface Media {
   role: string | null
   consent: 'unknown' | 'granted' | 'blurred' | 'not_needed'
   faces: { x: number; y: number; w: number; h: number }[] | null
+  analysis: Record<string, unknown> | null
   durationSeconds: number | null
 }
 

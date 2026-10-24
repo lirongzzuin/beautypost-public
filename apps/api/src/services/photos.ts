@@ -6,7 +6,7 @@ import { getRegistry } from '@beautypost/preset'
 import { schema, type Db } from '../db/index.js'
 import { getStorage, makeKey } from '../storage/index.js'
 import { ApiError } from './errors.js'
-import { blurBoxes, readMedia, type MediaRow } from './media.js'
+import { blurBoxes, decodable, readMedia, type MediaRow } from './media.js'
 import { resolveFor, type ShopContext } from './context.js'
 
 // 사진 보정: 프리셋 색감 + 자동 밝기·화이트밸런스(선택한 사진 전체를 합친 통계로 한 번) + 포맷 크롭.
@@ -56,7 +56,7 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
     if (!reg.has('formats', f) || reg.format(f).kind === 'video') throw new ApiError(400, 'FORMAT_INVALID', `사진으로 만들 수 없는 형식이에요: ${f}`)
   }
   const buffers = await Promise.all(images.map((r) => readMedia(r)))
-  const auto = autoPatch(await Promise.all(buffers.map((b) => imageStats(b))))
+  const auto = autoPatch(await decodable(() => Promise.all(buffers.map((b) => imageStats(b)))))
   const logo = await logoOf(db, ctx, req.useLogo)
   const storage = getStorage()
   const outputs: PhotoOutput[] = []
@@ -110,7 +110,7 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
 export async function moodPreviews(ctx: ShopContext, row: MediaRow, industry?: string | null) {
   if (row.type !== 'image') throw new ApiError(400, 'NOT_IMAGE', '미리보기는 사진으로만 볼 수 있어요.')
   const buf = await readMedia(row)
-  const small = await sharp(buf).rotate().resize(720, 720, { fit: 'inside' }).jpeg({ quality: 90 }).toBuffer()
+  const small = await decodable(() => sharp(buf).rotate().resize(720, 720, { fit: 'inside' }).jpeg({ quality: 90 }).toBuffer())
   const auto = autoPatch([await imageStats(small)])
   const reg = getRegistry()
   return Promise.all(
