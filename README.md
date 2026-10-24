@@ -4,7 +4,7 @@
 **게시글 초안(인스타·네이버 블로그·카카오톡), 보정 사진, 릴스·스토리 영상**을 만들어 주는 서비스.
 결과는 복사·저장해서 원장님이 직접 올린다 (인스타그램 계정 연동은 보류, `FEATURE_INSTAGRAM`).
 
-구조와 설계 이유: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+구조와 설계 이유: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · 기능 요약과 운영 설정 순서: **[docs/SETUP.md](docs/SETUP.md)**
 
 ## 구성
 
@@ -61,7 +61,7 @@ API_LOG=/tmp/api.log pnpm --filter @beautypost/web e2e
 
 ## 영상 렌더 작업자 운영
 
-- 맥에서 상시 실행: 위 2) 명령을 `launchd` 나 터미널에서. 렌더 중 작업자를 꺼도 작업은 사라지지 않는다 (임대 만료 후 다시 처리).
+- 맥에서 상시 실행: `RENDER_API_URL=… RENDER_WORKER_TOKEN=… apps/worker/scripts/install-launchd.sh` (로그인 때 자동 시작·꺼지면 재시작, 로그 `~/Library/Logs/beautypost-worker.log`). 렌더 중 작업자를 꺼도 작업은 사라지지 않는다 (임대 만료 후 다시 처리).
 - 필요한 것: filmcraft 저장소(`./br`), FilmCraft CLI, Python 환경 (`filmcraft/scripts/setup.sh`). 작업자가 처음 시작할 때 `presets/fonts/files` 의 폰트를 사용자 폰트 폴더에 설치한다.
 - 환경변수: `RENDER_API_URL`, `RENDER_WORKER_TOKEN`(API 와 같은 값), `FILMCRAFT_DIR`, `WORK_DIR`, `FONTS_DIR`, `POLL_INTERVAL_MS`, `LEASE_SEC`, `KEEP_WORK=1`(작업 폴더 남기기).
 - 큐 없이 한 편 렌더 (프리셋 확인용): `pnpm --filter @beautypost/worker exec tsx scripts/sample-spec.ts .data/s/spec.json --mood trendy-fast && pnpm --filter @beautypost/worker render-local .data/s/spec.json`
