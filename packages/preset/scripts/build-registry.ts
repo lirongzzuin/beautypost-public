@@ -59,8 +59,16 @@ export function loadRaw(dir: string): { raw: RawPresets; prompts: Record<string,
 function main(): void {
   const { raw, prompts } = loadRaw(PRESETS)
   const { data, errors, warnings } = buildRegistry(raw)
+  // 폰트 파일이 실제로 있는지, 선언한 굵기마다 파일이 있는지
+  for (const f of data?.fonts ?? []) {
+    for (const style of f.styles) {
+      const file = f.files[style]
+      if (!file) errors.push(`presets/fonts/${f.id}.json: ${style} 굵기의 files 항목이 없어요`)
+      else if (!existsSync(join(PRESETS, 'fonts/files', file))) errors.push(`presets/fonts/${f.id}.json: 폰트 파일 fonts/files/${file} 이 없어요`)
+    }
+  }
   for (const w of warnings) console.warn(`  ! ${w}`)
-  if (!data) {
+  if (!data || errors.length) {
     for (const e of errors) console.error(`  ✗ ${e}`)
     console.error(`\n프리셋 검증 실패 (${errors.length}건). presets/ 파일을 고친 뒤 다시 실행하세요.`)
     process.exit(1)

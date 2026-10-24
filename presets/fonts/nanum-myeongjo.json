@@ -1,2 +1,15 @@
-{ "$schema": "../_schema/fonts.schema.json", "id": "nanum-myeongjo", "family": "NanumMyeongjo", "license": "OFL-1.1",
-  "source": "https://fonts.google.com/specimen/Nanum+Myeongjo", "styles": ["Regular", "Bold"] }
+{
+  "$schema": "../_schema/fonts.schema.json",
+  "id": "nanum-myeongjo",
+  "family": "NanumMyeongjo",
+  "license": "OFL-1.1",
+  "source": "https://fonts.google.com/specimen/Nanum+Myeongjo",
+  "styles": [
+    "Regular",
+    "Bold"
+  ],
+  "files": {
+    "Regular": "NanumMyeongjo-Regular.ttf",
+    "Bold": "NanumMyeongjo-Bold.ttf"
+  }
+}

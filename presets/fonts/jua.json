@@ -1,2 +1,13 @@
-{ "$schema": "../_schema/fonts.schema.json", "id": "jua", "family": "Jua", "license": "OFL-1.1",
-  "source": "https://fonts.google.com/specimen/Jua", "styles": ["Regular"] }
+{
+  "$schema": "../_schema/fonts.schema.json",
+  "id": "jua",
+  "family": "Jua",
+  "license": "OFL-1.1",
+  "source": "https://fonts.google.com/specimen/Jua",
+  "styles": [
+    "Regular"
+  ],
+  "files": {
+    "Regular": "Jua-Regular.ttf"
+  }
+}

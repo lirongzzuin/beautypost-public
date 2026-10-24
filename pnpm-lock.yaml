@@ -55,7 +55,7 @@ importers:
         version: 6.0.301(zod@4.6.5)
       drizzle-orm:
         specifier: ^0.38.0
-        version: 0.38.4(@neondatabase/serverless@0.10.4)(@opentelemetry/api@1.9.1)(@types/pg@8.11.6)(@types/react@18.3.31)(react@18.3.1)
+        version: 0.38.4(@electric-sql/pglite@0.5.11)(@neondatabase/serverless@0.10.4)(@opentelemetry/api@1.9.1)(@types/pg@8.11.6)(@types/react@18.3.31)(react@18.3.1)
       hono:
         specifier: ^4.6.0
         version: 4.13.13
@@ -69,6 +69,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.11
+        version: 0.5.11
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.5
@@ -81,6 +84,9 @@ importers:
       typescript:
         specifier: '*'
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@22.20.5)(terser@5.51.2)(tsx@4.23.15)
 
   apps/web:
     dependencies:
@@ -127,6 +133,47 @@ importers:
       vite-plugin-pwa:
         specifier: ^0.21.0
         version: 0.21.2(vite@6.4.4(@types/node@22.20.5)(terser@5.51.2)(tsx@4.23.15))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
+
+  packages/ai:
+    dependencies:
+      '@ai-sdk/google':
+        specifier: ^3.0.131
+        version: 3.0.131(zod@4.6.5)
+      ai:
+        specifier: ^6.0.0
+        version: 6.0.301(zod@4.6.5)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+
+  packages/caption:
+    dependencies:
+      '@beautypost/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@beautypost/preset':
+        specifier: workspace:*
+        version: link:../preset
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+      typescript:
+        specifier: '*'
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.5)(terser@5.51.2)(tsx@4.23.15)
 
   packages/platform:
     devDependencies:
@@ -716,6 +763,9 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@electric-sql/pglite@0.5.11':
+    resolution: {integrity: sha512-SWuqsTjA4DDWqgZ05PC1RJaq8e00p5KACxbqaikDFQ8dIGA0SLRzuPniky7IW+q/c5RDNMdEXwv7mFBWIx9Hxw==}
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -4234,6 +4284,8 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
+  '@electric-sql/pglite@0.5.11': {}
+
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
       esbuild: 0.18.20
@@ -5320,8 +5372,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.38.4(@neondatabase/serverless@0.10.4)(@opentelemetry/api@1.9.1)(@types/pg@8.11.6)(@types/react@18.3.31)(react@18.3.1):
+  drizzle-orm@0.38.4(@electric-sql/pglite@0.5.11)(@neondatabase/serverless@0.10.4)(@opentelemetry/api@1.9.1)(@types/pg@8.11.6)(@types/react@18.3.31)(react@18.3.1):
     optionalDependencies:
+      '@electric-sql/pglite': 0.5.11
       '@neondatabase/serverless': 0.10.4
       '@opentelemetry/api': 1.9.1
       '@types/pg': 8.11.6

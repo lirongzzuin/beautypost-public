@@ -32,6 +32,20 @@
           "Bold"
         ]
       }
+    },
+    "files": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "Regular",
+          "Medium",
+          "Bold"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   },
   "required": [
@@ -39,6 +53,7 @@
     "family",
     "license",
     "source",
-    "styles"
+    "styles",
+    "files"
   ]
 }

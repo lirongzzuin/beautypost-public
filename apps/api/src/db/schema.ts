@@ -85,6 +85,40 @@ export const styleExamples = pgTable('style_examples', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// ─── Brand profile (샵 단위 기본 스타일) ──────────────────────────────────────────
+// 생성할 때 기본값: 업종·무드(+차이값)·브랜드 컬러·로고·예약 안내·말투 샘플.
+// brand_preset 은 packages/preset 의 BrandPreset 형식 (스키마로 검증 후 저장).
+
+export const brandProfiles = pgTable('brand_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  industry: text('industry'),
+  brandPreset: jsonb('brand_preset').$type<Record<string, unknown>>(),
+  bookingLabel: text('booking_label'),
+  bookingUrl: text('booking_url'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// ─── Generations (게시글 초안 생성 기록 → 선택·수정 피드백) ──────────────────────
+
+export const generations = pgTable('generations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull().default('caption'),
+  input: jsonb('input').$type<Record<string, unknown>>().notNull().default({}),
+  // 채널별 후보: { instagram: [...], blog: [...] }
+  candidates: jsonb('candidates').$type<Record<string, unknown>>().notNull().default({}),
+  // 원장님이 고른 후보 { instagram?: number, blog?: number } 와 직접 고친 최종본
+  chosen: jsonb('chosen').$type<Record<string, number>>(),
+  edited: jsonb('edited').$type<Record<string, string>>(),
+  promptVersions: jsonb('prompt_versions').$type<Record<string, string>>().notNull().default({}),
+  model: text('model'),
+  postId: uuid('post_id'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 // ─── Entitlements ─────────────────────────────────────────────────────────────
 
 export const entitlements = pgTable('entitlements', {
@@ -138,6 +172,22 @@ export const media = pgTable('media', {
   sizeBytes: integer('size_bytes').notNull(),
   status: mediaStatusEnum('status').notNull().default('pending'),
   exifStripped: boolean('exif_stripped').notNull().default(false),
+  // ── 프리셋 기반 생성 (docs/ARCHITECTURE.md) ──
+  storageKey: text('storage_key'),
+  mimeType: text('mime_type'),
+  // 콘텐츠 목적 템플릿에서의 역할: before | after | process | detail | shop | owner | review | product | any
+  role: text('role'),
+  // 비전 분석 결과 (packages/caption MediaAnalysis). 사진당 1회, 캐시
+  analysis: jsonb('analysis').$type<Record<string, unknown>>(),
+  // 얼굴 게시 동의: unknown | granted(고객 동의 확인) | blurred(얼굴 가림) | not_needed(얼굴 없음)
+  consent: text('consent').notNull().default('unknown'),
+  consentAt: timestamp('consent_at'),
+  // 얼굴 영역 [{x,y,w,h}] (0~1)
+  faces: jsonb('faces').$type<{ x: number; y: number; w: number; h: number }[]>(),
+  // 생성물이면 원본 미디어와 만든 방식: upload | photocraft | render | card
+  origin: text('origin').notNull().default('upload'),
+  parentId: uuid('parent_id'),
+  formatId: text('format_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
@@ -214,6 +264,19 @@ export const jobs = pgTable('jobs', {
   result: jsonb('result').$type<Record<string, unknown>>(),
   error: text('error'),
   attempts: integer('attempts').notNull().default(0),
+  // ── 작업 큐 (apps/api/src/jobs). 상태 의미: pending=대기(재시도 대기 포함, run_after) · processing=임대 중 ·
+  //    completed=성공 · failed=재시도 소진. 임대가 만료된 processing 은 다시 가져갈 수 있다 (작업자가 꺼져도 유실 없음)
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  maxAttempts: integer('max_attempts').notNull().default(3),
+  runAfter: timestamp('run_after').notNull().defaultNow(),
+  leaseOwner: text('lease_owner'),
+  leaseExpiresAt: timestamp('lease_expires_at'),
+  idempotencyKey: text('idempotency_key').unique(),
+  priority: integer('priority').notNull().default(100),
+  progress: integer('progress').notNull().default(0),
+  stage: text('stage'),
+  startedAt: timestamp('started_at'),
+  finishedAt: timestamp('finished_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

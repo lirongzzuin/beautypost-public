@@ -173,6 +173,8 @@ export const FontDef = z.object({
   license: z.string().min(1), // 상업적 사용 가능 라이선스만 (예: OFL-1.1)
   source: z.string().url(),
   styles: z.array(z.enum(['Regular', 'Medium', 'Bold'])).min(1),
+  // 굵기별 폰트 파일 (presets/fonts/files/ 기준). 사진 문구 오버레이(sharp)와 렌더 작업자 폰트 설치에 쓴다
+  files: z.partialRecord(z.enum(['Regular', 'Medium', 'Bold']), z.string()),
 })
 
 // ─── 정책: 금지·과장·의료 표현, AI 상투어 (presets/policy/<id>.json) ──────────

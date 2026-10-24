@@ -1,2 +1,17 @@
-{ "$schema": "../_schema/fonts.schema.json", "id": "pretendard", "family": "Pretendard", "license": "OFL-1.1",
-  "source": "https://github.com/orioncactus/pretendard", "styles": ["Regular", "Medium", "Bold"] }
+{
+  "$schema": "../_schema/fonts.schema.json",
+  "id": "pretendard",
+  "family": "Pretendard",
+  "license": "OFL-1.1",
+  "source": "https://github.com/orioncactus/pretendard",
+  "styles": [
+    "Regular",
+    "Medium",
+    "Bold"
+  ],
+  "files": {
+    "Regular": "Pretendard-Regular.otf",
+    "Medium": "Pretendard-Medium.otf",
+    "Bold": "Pretendard-Bold.otf"
+  }
+}
