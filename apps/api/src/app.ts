@@ -6,7 +6,6 @@ import { prettyJSON } from 'hono/pretty-json'
 import authRoutes from './routes/auth.js'
 import uploadRoutes from './routes/upload.js'
 import postsRoutes from './routes/posts.js'
-import aiRoutes from './routes/ai.js'
 import channelsRoutes from './routes/channels.js'
 import customersRoutes from './routes/customers.js'
 import notificationsRoutes from './routes/notifications.js'
@@ -62,7 +61,6 @@ app.get('/config', (c) => {
 app.route('/auth', authRoutes)
 app.route('/upload', uploadRoutes)
 app.route('/posts', postsRoutes)
-app.route('/ai', aiRoutes)
 app.route('/channels', channelsRoutes)
 app.route('/customers', customersRoutes)
 app.route('/notifications', notificationsRoutes)

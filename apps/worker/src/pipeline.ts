@@ -62,8 +62,13 @@ async function waitForBabyreelLock(filmcraftDir: string, signal?: AbortSignal): 
   const lock = join(filmcraftDir, 'data/auto.lock')
   while (existsSync(lock)) {
     if (signal?.aborted) throw new Error('중단됨')
-    await new Promise((r) => setTimeout(r, 10_000))
+    // 기다리는 중에도 종료 신호에는 바로 반응한다
+    await new Promise<void>((r) => {
+      const t = setTimeout(r, 10_000)
+      signal?.addEventListener('abort', () => (clearTimeout(t), r()), { once: true })
+    })
   }
+  if (signal?.aborted) throw new Error('중단됨')
 }
 
 function runFilmcraft(filmcraftDir: string, jobDir: string, signal?: AbortSignal): Promise<{ code: number; log: string }> {

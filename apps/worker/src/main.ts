@@ -37,7 +37,6 @@ async function runOne(job: ClaimedJob): Promise<void> {
   let progress = 1
   let stage = 'start'
   let lost = false
-  let lastReport = 0
   const beat = setInterval(() => {
     api.heartbeat(job, progress, stage).catch((e) => {
       if (e instanceof LeaseLostError) {
@@ -46,7 +45,7 @@ async function runOne(job: ClaimedJob): Promise<void> {
       }
       log('하트비트 실패:', e.message)
     })
-  }, Math.max(5, Math.floor(cfg.leaseSec / 3)) * 1000)
+  }, Math.min(10, Math.max(5, Math.floor(cfg.leaseSec / 3))) * 1000) // 진행률도 이 간격으로 갱신
   try {
     await api.heartbeat(job, progress, stage)
     const r = await renderJob(job.payload, job.id, {
@@ -58,11 +57,8 @@ async function runOne(job: ClaimedJob): Promise<void> {
         const changed = s !== stage
         stage = s
         progress = p
-        // 단계가 바뀌면 바로 알린다 (원장님 화면의 진행률). 너무 잦지 않게 3초 간격
-        if (changed && Date.now() - lastReport > 3000) {
-          lastReport = Date.now()
-          api.heartbeat(job, progress, stage).catch(() => undefined)
-        }
+        // 단계가 바뀌면 바로 알린다 (원장님 화면의 진행률). 단계는 몇 개뿐이라 매번 보내도 된다
+        if (changed) api.heartbeat(job, progress, stage).catch(() => undefined)
       },
     })
     stage = 'upload'

@@ -1,39 +1,64 @@
 {
-  "buildCommand": "pnpm --filter @beautypost/shared build && pnpm --filter @beautypost/web build",
+  "buildCommand": "pnpm --filter @beautypost/shared --filter @beautypost/preset --filter @beautypost/ai --filter @beautypost/caption --filter @beautypost/photocraft --filter @beautypost/render build && pnpm --filter @beautypost/web build",
   "outputDirectory": "apps/web/dist",
   "installCommand": "pnpm install",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/((?!assets/|sw.js|workbox-|manifest|icon-|favicon|apple-touch-|privacy).*)", "destination": "/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!assets/|sw.js|workbox-|manifest|icon-|favicon|apple-touch-|privacy).*)",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
     "api/index.ts": {
-      "maxDuration": 300
+      "maxDuration": 300,
+      "includeFiles": "presets/fonts/files/**"
     }
   },
   "headers": [
     {
       "source": "/index.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
       ]
     },
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ],
   "crons": [
-    { "path": "/api/cron/publish-scheduled", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/check-expiry", "schedule": "0 10 * * *" },
-    { "path": "/api/cron/reward-streak", "schedule": "0 0 * * 1" }
+    {
+      "path": "/api/cron/publish-scheduled",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/check-expiry",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/reward-streak",
+      "schedule": "0 0 * * 1"
+    }
   ]
 }
