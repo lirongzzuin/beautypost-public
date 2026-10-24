@@ -43,18 +43,40 @@ export interface FilePickerAdapter {
   pickFromCamera(): Promise<PickedFile | null>
 }
 
+/** API 가 발급한 직접 업로드 권한 (POST /api/upload/ticket) */
+export type UploadTicket =
+  | { mode: 'blob'; key: string; token: string }
+  | { mode: 'local'; key: string; uploadUrl: string; url: string }
+
 export interface UploadTransportAdapter {
-  upload(
-    files: PickedFile[],
-    sessionId: string,
-    onProgress: (progress: UploadProgress) => void
-  ): Promise<{ fileId: string; mediaId: string }[]>
-  cancel(fileId: string): void
+  /** 서버를 거치지 않고 저장소에 직접 올린다 (큰 영상도 가능). 진행률 0~100 */
+  put(ticket: UploadTicket, body: Blob, contentType: string, onProgress?: (percent: number) => void): Promise<{ key: string; url: string }>
+}
+
+export interface SavableFile {
+  url: string
+  filename: string
+  mimeType: string
 }
 
 export interface ShareAdapter {
   share(options: { title?: string; text?: string; url?: string; files?: string[] }): Promise<void>
   saveToGallery?(url: string): Promise<void>
+  /** 결과 파일 저장: 휴대폰은 공유 시트(사진 앱 저장·인스타로 보내기), 아니면 내려받기 */
+  saveFiles(files: SavableFile[]): Promise<'shared' | 'downloaded' | 'cancelled'>
+}
+
+export interface VideoInfo {
+  poster: Blob
+  durationSeconds: number
+  width: number
+  height: number
+}
+
+export interface MediaProbeAdapter {
+  /** 영상의 대표 화면(1초 지점) JPEG 과 길이·크기 */
+  videoInfo(file: Blob): Promise<VideoInfo>
+  imageSize(file: Blob): Promise<{ width: number; height: number } | null>
 }
 
 export interface ClipboardAdapter {
@@ -99,6 +121,7 @@ export interface Platform {
   filePicker: FilePickerAdapter
   uploadTransport: UploadTransportAdapter
   share: ShareAdapter
+  media: MediaProbeAdapter
   clipboard: ClipboardAdapter
   externalBrowser: ExternalBrowserAdapter
   push: PushAdapter

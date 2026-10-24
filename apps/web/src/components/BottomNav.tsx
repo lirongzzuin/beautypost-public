@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // Full-screen focused flows render their own footer actions — the global tab
 // bar would overlap those buttons, so it is hidden on these routes.
-const HIDDEN_ON = ['/posts/create']
+const HIDDEN_ON = ['/settings/brand', '/posts/create']
 
 export function BottomNav() {
   const { location } = useRouterState()

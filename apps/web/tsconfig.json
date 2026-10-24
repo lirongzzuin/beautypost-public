@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -10,12 +14,28 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@beautypost/shared": ["../../packages/shared/src/index.ts"],
-      "@beautypost/platform": ["../../packages/platform/src/index.ts"],
-      "@beautypost/ui": ["../../packages/ui/src/index.ts"],
-      "~/*": ["./src/*"]
+      "@beautypost/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@beautypost/platform": [
+        "../../packages/platform/src/index.ts"
+      ],
+      "@beautypost/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
+      "~/*": [
+        "./src/*"
+      ],
+      "@beautypost/platform/web": [
+        "../../packages/platform/src/web/index.ts"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

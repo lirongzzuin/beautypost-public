@@ -51,6 +51,8 @@ export default defineConfig({
     alias: {
       '~': resolve(__dirname, 'src'),
       '@beautypost/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
+      // 더 구체적인 경로를 먼저 (별칭은 앞에서부터 접두어로 맞춘다)
+      '@beautypost/platform/web': resolve(__dirname, '../../packages/platform/src/web/index.ts'),
       '@beautypost/platform': resolve(__dirname, '../../packages/platform/src/index.ts'),
       '@beautypost/ui': resolve(__dirname, '../../packages/ui/src/index.ts'),
     },

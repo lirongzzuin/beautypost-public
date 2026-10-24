@@ -6,6 +6,7 @@ import { webStorage } from './storage'
 import { webFilePicker } from './filePicker'
 import { webUploadTransport } from './uploadTransport'
 import { webShare } from './share'
+import { webMedia } from './media'
 import { webClipboard } from './clipboard'
 import { webExternalBrowser } from './externalBrowser'
 import { webPush } from './push'
@@ -32,6 +33,7 @@ export const webPlatform: Platform = {
   filePicker: webFilePicker,
   uploadTransport: webUploadTransport,
   share: webShare,
+  media: webMedia,
   clipboard: webClipboard,
   externalBrowser: webExternalBrowser,
   push: webPush,

@@ -95,3 +95,12 @@ describe('작업 큐', () => {
     expect(await claim(db, 'w1', { types: ['render_reel'] })).not.toBeNull()
   })
 })
+
+describe('refresh 토큰', () => {
+  it('같은 사용자가 같은 초에 두 번 로그인해도 토큰이 다르다 (unique 충돌 방지)', async () => {
+    process.env.JWT_REFRESH_SECRET ??= 'x'.repeat(40)
+    const { signRefreshToken } = await import('../src/lib/jwt.js')
+    const [a, b] = await Promise.all([signRefreshToken('u1'), signRefreshToken('u1')])
+    expect(a).not.toBe(b)
+  })
+})

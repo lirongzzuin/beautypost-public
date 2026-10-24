@@ -15,7 +15,9 @@ const LoginPage = lazy(() => import('~/pages/LoginPage'))
 const VerifyPage = lazy(() => import('~/pages/VerifyPage'))
 const OnboardingPage = lazy(() => import('~/pages/OnboardingPage'))
 const DashboardPage = lazy(() => import('~/pages/DashboardPage'))
-const CreatePostPage = lazy(() => import('~/pages/CreatePostPage'))
+const CreateContentPage = lazy(() => import('~/pages/create/CreateContentPage'))
+const LibraryPage = lazy(() => import('~/pages/LibraryPage'))
+const BrandSettingsPage = lazy(() => import('~/pages/BrandSettingsPage'))
 const CalendarPage = lazy(() => import('~/pages/CalendarPage'))
 const PostsPage = lazy(() => import('~/pages/PostsPage'))
 const PostDetailPage = lazy(() => import('~/pages/PostDetailPage'))
@@ -86,7 +88,7 @@ const dashboardRoute = createRoute({
 const createPostRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/posts/create',
-  component: () => <CreatePostPage />,
+  component: () => <CreateContentPage />,
 })
 
 const postsRoute = createRoute({
@@ -137,6 +139,18 @@ const channelsRoute = createRoute({
   component: () => <ChannelsPage />,
 })
 
+const libraryRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/library',
+  component: () => <LibraryPage />,
+})
+
+const brandRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/settings/brand',
+  component: () => <BrandSettingsPage />,
+})
+
 const profileRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/settings/profile',
@@ -161,6 +175,8 @@ const routeTree = rootRoute.addChildren([
     settingsRoute,
     channelsRoute,
     profileRoute,
+    libraryRoute,
+    brandRoute,
   ]),
 ])
 

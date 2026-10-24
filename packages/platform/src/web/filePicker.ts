@@ -61,6 +61,6 @@ export const webFilePicker: FilePickerAdapter = {
     if (!navigator.mediaDevices?.getUserMedia) return null
     const files = await openFilePicker('image/*,video/*', false)
     if (files.length === 0) return null
-    return fileToPickedFile(files[0])
+    return fileToPickedFile(files[0]!)
   },
 }

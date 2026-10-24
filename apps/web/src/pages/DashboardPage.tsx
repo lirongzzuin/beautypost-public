@@ -111,7 +111,7 @@ export default function DashboardPage() {
           <div className={styles.quickGrid}>
             <Link to="/posts/create" className={styles.quickCard}>
               <span className={styles.quickIcon}>✍️</span>
-              <span className={styles.quickLabel}>게시물 만들기</span>
+              <span className={styles.quickLabel}>글·사진·영상 만들기</span>
             </Link>
             <Link to="/calendar" className={styles.quickCard}>
               <span className={styles.quickIcon}>📅</span>
@@ -121,9 +121,9 @@ export default function DashboardPage() {
               <span className={styles.quickIcon}>👥</span>
               <span className={styles.quickLabel}>고객 관리</span>
             </Link>
-            <Link to="/settings/channels" className={styles.quickCard}>
-              <span className={styles.quickIcon}>📸</span>
-              <span className={styles.quickLabel}>채널 연결</span>
+            <Link to="/library" className={styles.quickCard}>
+              <span className={styles.quickIcon}>🎬</span>
+              <span className={styles.quickLabel}>만든 영상</span>
             </Link>
           </div>
         </div>

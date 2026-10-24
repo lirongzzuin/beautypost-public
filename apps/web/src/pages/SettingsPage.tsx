@@ -2,11 +2,13 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuthStore } from '~/store/auth'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '~/api/client'
+import { useFeatureFlags } from '~/hooks/useFeatureFlags'
 import styles from './SettingsPage.module.css'
 
 export default function SettingsPage() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const flags = useFeatureFlags()
 
   const { data: entData } = useQuery({
     queryKey: ['entitlement'],
@@ -68,10 +70,20 @@ export default function SettingsPage() {
 
         {/* Menu items */}
         <div className={styles.menuGroup}>
-          <Link to="/settings/channels" className={styles.menuItem}>
-            <span>📸 채널 연결 관리</span>
+          <Link to="/settings/brand" className={styles.menuItem}>
+            <span>🎨 브랜드 설정 (분위기·로고·말투)</span>
             <span className={styles.chevron}>›</span>
           </Link>
+          <Link to="/library" className={styles.menuItem}>
+            <span>🎬 만든 영상</span>
+            <span className={styles.chevron}>›</span>
+          </Link>
+          {flags.instagram && (
+            <Link to="/settings/channels" className={styles.menuItem}>
+              <span>📸 채널 연결 관리</span>
+              <span className={styles.chevron}>›</span>
+            </Link>
+          )}
           <Link to="/settings/profile" className={styles.menuItem}>
             <span>🏪 가게 정보 수정</span>
             <span className={styles.chevron}>›</span>

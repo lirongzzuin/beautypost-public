@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
 
 const accessSecret = () => new TextEncoder().encode(process.env.JWT_SECRET!)
@@ -15,8 +16,10 @@ export async function signAccessToken(payload: { sub: string; email: string; rol
 }
 
 export async function signRefreshToken(sub: string) {
+  // jti: 같은 초에 두 번 로그인해도 토큰이 겹치지 않게 (refresh_tokens.token 은 unique)
   return new SignJWT({ sub })
     .setProtectedHeader({ alg: 'HS256' })
+    .setJti(randomUUID())
     .setIssuedAt()
     .setExpirationTime(REFRESH_EXPIRES)
     .sign(refreshSecret())
