@@ -138,6 +138,9 @@ function crossCheck(d: RegistryData, errors: string[], warnings: string[]): void
   for (const p of d.purposes) {
     const roles = new Set<string>(p.requiredMedia.map((r) => r.role))
     p.video.slots.forEach((s, i) => {
+      if (s.source === 'compare' && !(roles.has('before') && roles.has('after'))) {
+        errors.push(`purposes/${p.id}: slots[${i}] 는 비교(compare) 장면인데 requiredMedia 에 before·after 가 없어요`)
+      }
       if (s.source === 'media' && !s.mediaRole) errors.push(`purposes/${p.id}: slots[${i}] 는 media 슬롯인데 mediaRole 이 없어요`)
       if (s.mediaRole && s.mediaRole !== 'any' && !roles.has(s.mediaRole)) {
         errors.push(`purposes/${p.id}: slots[${i}].mediaRole "${s.mediaRole}" 가 requiredMedia 에 없어요`)

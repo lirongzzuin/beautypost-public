@@ -13,6 +13,8 @@ export const MediaAnalysis = z.object({
   colors: z.array(z.string()).max(4),
   faces: z.array(Box).max(10).describe('얼굴 영역 (0~1)'),
   focus: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).describe('시술 부위 중심'),
+  // 영상·사진 클로즈업 구도용 (이전 분석에는 없음)
+  areaBox: Box.nullable().optional().describe('시술 부위를 감싸는 영역 (0~1). 안 보이면 null'),
   textInImage: z.string(),
   quality: z.object({ brightness: z.enum(['dark', 'ok', 'bright']), blurry: z.boolean() }),
 })

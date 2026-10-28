@@ -59,7 +59,7 @@ export default function StepStyle({ presets, purpose, choices, set, items }: Pro
       <label className={styles.toggleRow}>
         <input type="checkbox" checked={choices.wantDrafts} onChange={(e) => set({ wantDrafts: e.target.checked })} />
         <span>
-          <strong>게시글 초안</strong> 인스타그램 · 네이버 블로그 · 카카오톡 (후보 여러 개, 바로 복사)
+          <strong>게시글 초안</strong> 인스타그램 후보 3개 (블로그·카카오톡 버전도, 바로 복사)
         </span>
       </label>
 
@@ -87,7 +87,7 @@ export default function StepStyle({ presets, purpose, choices, set, items }: Pro
       <label className={styles.toggleRow}>
         <input type="checkbox" checked={choices.wantVideo} onChange={(e) => set({ wantVideo: e.target.checked })} />
         <span>
-          <strong>영상</strong> 릴스·스토리 (완성되면 알려 드려요, 보통 1~2분)
+          <strong>영상</strong> 릴스·스토리 (보통 30초 안팎, 완성되면 알려 드려요)
         </span>
       </label>
       {choices.wantVideo && (
@@ -102,14 +102,16 @@ export default function StepStyle({ presets, purpose, choices, set, items }: Pro
         </div>
       )}
 
-      <p className={styles.sectionLabel}>꼭 넣을 내용 (선택)</p>
+      <p className={styles.sectionLabel}>시술 메모 (선택, 글이 훨씬 구체적이 돼요)</p>
       <textarea
         className={styles.textarea}
-        rows={2}
-        placeholder="예: 리터치 이벤트 20% 할인 (~10/31), 1:1 예약제"
+        rows={3}
+        maxLength={500}
+        placeholder={'예: 콤보 눈썹, 꼬리 쪽 숱 채움\n고객 요청: 문신한 티 안 나게\n리터치 이벤트 20% (~10/31)'}
         value={choices.keywords}
         onChange={(e) => set({ keywords: e.target.value })}
       />
+      <p className={styles.hint}>기법·색·고객 요청처럼 사진만 봐서는 모르는 사실을 적어 주세요. 적지 않은 내용은 지어내지 않아요.</p>
 
       {purpose.id === 'review' && (customers.data?.length ?? 0) > 0 && (
         <>

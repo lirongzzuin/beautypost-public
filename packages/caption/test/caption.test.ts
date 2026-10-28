@@ -37,7 +37,14 @@ function ctx(over: Partial<DraftContext> = {}): DraftContext {
 
 describe('프롬프트 템플릿', () => {
   it('모든 템플릿이 파싱되고 필수 변수를 채우면 렌더된다', () => {
-    expect(allPrompts().map((p) => p.id).sort()).toEqual(['caption-blog', 'caption-instagram', 'caption-rewrite', 'media-analysis', 'video-captions'])
+    expect([...new Set(allPrompts().map((p) => p.id))].sort()).toEqual(['caption-blog', 'caption-instagram', 'caption-rewrite', 'media-analysis', 'video-captions'])
+    expect(getPrompt('caption-instagram').version).toBe(2)
+  })
+  it('{{#if}} 는 중첩할 수 있다', () => {
+    const t = parsePrompt('n@1', '---\nid: n\nversion: 1\n---\n[{{#if a}}A{{#if b}}B{{/if}}{{/if}}]')
+    expect(renderPrompt(t, { a: '1', b: '' })).toBe('[A]')
+    expect(renderPrompt(t, { a: '1', b: '1' })).toBe('[AB]')
+    expect(renderPrompt(t, { a: '', b: '1' })).toBe('[]')
   })
   it('{{#if}} 블록은 값이 비면 사라지고, 없는 변수는 오류', () => {
     const t = parsePrompt('t@1', '---\nid: t\nversion: 1\n---\nA{{#if x}} X={{x}}{{/if}} B={{y}}')
@@ -105,22 +112,44 @@ describe('서식', () => {
 })
 
 describe('게시글 생성 (목 모델)', () => {
-  it('인스타 3개·블로그 2개 후보, 지역 키워드·해시태그·카카오 문구까지', async () => {
+  it('인스타 3개·블로그 2개 후보, 지역 키워드·해시태그(기본 5개)·카카오 문구까지', async () => {
     const ai = createAiClient({ mock: mockResponder })
     const r = await generateDrafts(ai, ctx())
     expect(r.instagram).toHaveLength(3)
     expect(r.blog).toHaveLength(2)
     expect(r.keyword).toBe('역삼 눈썹문신')
+    expect(new Set(r.instagram.map((c) => c.draft.angle)).size).toBe(3) // 서로 다른 형식
     for (const c of r.instagram) {
       expect(c.draft.hashtags[0]).toBe('#역삼눈썹문신')
-      expect(c.draft.hashtags.length).toBeGreaterThanOrEqual(10)
+      expect(c.draft.hashtags).toHaveLength(5)
       expect(c.text).toContain(c.draft.hashtags.join(' '))
       expect(c.kakao).toContain('📍 뷰티룸')
       expect(c.findings.filter((f) => f.severity === 'block')).toEqual([])
     }
     expect(r.blog[0]!.draft.title).toContain('역삼 눈썹문신')
     expect(r.blog[0]!.text).toMatch(/\[사진 1\][\s\S]*\[사진 2\]/)
-    expect(r.promptVersions.instagram).toBe('caption-instagram@1')
+    expect(r.promptVersions.instagram).toBe('caption-instagram@2')
+  })
+
+  it('샵 고정 안내 문구는 본문과 해시태그 사이에 그대로, 고정 해시태그는 앞쪽에, 개수는 설정대로', async () => {
+    const prompts: string[] = []
+    const ai = createAiClient({ mock: (req) => (prompts.push(req.prompt), mockResponder(req)) })
+    const signature = '𝗿𝗲𝘀𝗲𝗿𝘃𝗮𝘁𝗶𝗼𝗻\n* 카카오채널 #뷰티룸'
+    const r = await generateDrafts(ai, ctx({ settings: { signature, hashtagCount: 3, brandHashtags: ['#뷰티룸'] } }), { instagram: 1, blog: 0 })
+    const c = r.instagram[0]!
+    expect(c.draft.hashtags).toEqual(['#역삼눈썹문신', '#역삼반영구눈썹', '#뷰티룸'])
+    expect(c.text).toBe(`${c.draft.caption.trim()}\n\n${signature}\n\n#역삼눈썹문신 #역삼반영구눈썹 #뷰티룸`)
+    // 고정 안내가 있으면 AI 에게 예약 문장을 쓰지 말라고 한다
+    expect(prompts[0]).toContain('고정 안내 문구가 글 끝에 자동으로')
+    expect(prompts[0]).toContain('[해시태그] 3개')
+  })
+
+  it('고정 안내가 없으면 마지막 줄 예약 유도를 쓰게 한다', async () => {
+    const prompts: string[] = []
+    const ai = createAiClient({ mock: (req) => (prompts.push(req.prompt), mockResponder(req)) })
+    await generateDrafts(ai, ctx(), { instagram: 1, blog: 0 })
+    expect(prompts[0]).toContain('마지막 줄 예약 유도는 한 문장')
+    expect(prompts[0]).not.toContain('고정 안내 문구가 글 끝에')
   })
 
   it('프롬프트에 사진 분석·말투·업종 어휘·금지 표현이 들어간다', async () => {

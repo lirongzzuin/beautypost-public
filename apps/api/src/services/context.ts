@@ -10,6 +10,7 @@ import {
 } from '@beautypost/preset'
 import { schema, type Db } from '../db/index.js'
 import { ApiError } from './errors.js'
+import { parseSettings, type ContentSettings } from './settings.js'
 
 // 생성 요청마다 필요한 샵 정보·브랜드 기본값·프리셋 해석을 한곳에서.
 
@@ -21,6 +22,7 @@ export interface ShopContext {
   brand: BrandRow | null
   brandPreset: BrandPresetInput | null
   shop: { name: string; region: string; booking: string | null }
+  settings: ContentSettings
 }
 
 const CATEGORY_TO_INDUSTRY: Record<string, string> = {
@@ -37,6 +39,7 @@ export async function loadShop(db: Db, userId: string): Promise<ShopContext> {
     brand: brand ?? null,
     brandPreset: parsed?.success ? parsed.data : null,
     shop: { name: profile.shopName, region: profile.region, booking: brand?.bookingLabel ?? null },
+    settings: parseSettings(brand?.contentSettings),
   }
 }
 
@@ -69,6 +72,11 @@ export function resolveFor(
     if (e instanceof PresetNotFoundError) throw new ApiError(400, 'PRESET_NOT_FOUND', `선택한 스타일을 찾을 수 없어요 (${e.kind}/${e.id})`)
     throw new ApiError(400, 'PRESET_INVALID', '스타일 조정 값이 허용 범위를 벗어났어요.')
   }
+}
+
+/** 게시글 생성에 넘길 샵 설정 */
+export function captionSettings(ctx: ShopContext) {
+  return { signature: ctx.settings.signature, hashtagCount: ctx.settings.hashtagCount, brandHashtags: ctx.settings.brandHashtags }
 }
 
 /** 말투 샘플: 원장님이 직접 넣은 글(style_examples) + 최근에 고르거나 고친 인스타 글 */

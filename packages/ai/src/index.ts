@@ -9,6 +9,9 @@ import type { z } from 'zod'
 //   2) Vercel AI Gateway → Claude (Vercel 에서는 OIDC, 로컬은 AI_GATEWAY_API_KEY)
 // 덮어쓰기: AI_MODELS_<ROLE>="gemini:gemini-3.8-flash,gateway:anthropic/claude-sonnet-5.5"
 // 테스트·키 없는 로컬: AI_PROVIDER=mock 또는 createAiClient({ mock })
+//
+// 속도: Gemini 3 계열은 기본으로 길게 "생각"한 뒤 답한다 (글 하나에 20~40초). 이 서비스의 작업(사진 관찰 기록·글 초안)은
+// 추론이 거의 필요 없어 AI_THINKING=minimal(기본)로 끈다. 호출마다 걸린 시간을 로그로 남긴다 ([AI] 작업 모델 n.n초).
 
 export type AiRole = 'vision' | 'copy'
 
@@ -44,7 +47,22 @@ export type MockResponder = (req: StructuredRequest<unknown>) => unknown | Promi
 interface Candidate {
   name: string
   model: LanguageModel
+  providerOptions?: Record<string, Record<string, JSONValue>>
 }
+
+type JSONValue = string | number | boolean | null | JSONValue[] | { [k: string]: JSONValue }
+
+/** Gemini 생각(추론) 수준. 3.x 는 thinkingLevel, 2.5 는 thinkingBudget(0 = 끔) */
+function geminiThinking(id: string): Record<string, JSONValue> | undefined {
+  const level = (process.env.AI_THINKING ?? 'minimal') as 'minimal' | 'low' | 'medium' | 'high' | 'default'
+  if (level === 'default') return undefined
+  const pro = /pro/i.test(id) // Pro 모델은 생각을 끌 수 없다 (minimal·0 을 거부) → 가장 낮은 값으로
+  if (/^gemini-2\./.test(id)) return { thinkingConfig: { thinkingBudget: level === 'minimal' ? (pro ? 128 : 0) : level === 'low' ? 512 : 2048 } }
+  return { thinkingConfig: { thinkingLevel: pro && level === 'minimal' ? 'low' : level } }
+}
+
+/** 한 모델이 오래 응답하지 않으면 다음 후보로 넘어간다 */
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 45_000)
 
 const DEFAULTS: Record<AiRole, string> = {
   vision: `gemini:${process.env.GEMINI_MODEL ?? 'gemini-3.8-flash'},gateway:${process.env.AI_FALLBACK_MODEL ?? 'anthropic/claude-sonnet-5.5'}`,
@@ -70,7 +88,8 @@ function candidatesFor(role: AiRole): Candidate[] {
     if (provider === 'gemini') {
       if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) continue
       const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY })
-      out.push({ name: `gemini:${id}`, model: google(id) })
+      const thinking = geminiThinking(id)
+      out.push({ name: `gemini:${id}`, model: google(id), providerOptions: thinking ? { google: thinking } : undefined })
     } else if (provider === 'gateway') {
       // 문자열 모델 id 는 AI SDK 가 Vercel AI Gateway 로 보낸다
       out.push({ name: `gateway:${id}`, model: id })
@@ -98,7 +117,8 @@ class ModelRouterClient implements AiClient {
   async generate<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>> {
     const candidates = candidatesFor(req.role)
     let lastError: unknown
-    for (const { name, model } of candidates) {
+    for (const { name, model, providerOptions } of candidates) {
+      const t0 = Date.now()
       try {
         // AI SDK v6: generateObject 는 deprecated → generateText + Output.object
         const { output } = await generateText({
@@ -106,12 +126,16 @@ class ModelRouterClient implements AiClient {
           output: Output.object({ schema: req.schema }),
           system: req.system,
           messages: toMessages(req as StructuredRequest<unknown>),
+          providerOptions,
+          maxRetries: 1,
+          abortSignal: AbortSignal.timeout(TIMEOUT_MS),
           ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
           ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
         })
+        console.log(`[AI] ${req.task} ${name} ${((Date.now() - t0) / 1000).toFixed(1)}초`)
         return { object: output as T, model: name }
       } catch (err) {
-        console.error(`[AI] ${req.task}: "${name}" 실패:`, err instanceof Error ? err.message : err)
+        console.error(`[AI] ${req.task}: "${name}" 실패 (${((Date.now() - t0) / 1000).toFixed(1)}초):`, err instanceof Error ? err.message : err)
         lastError = err
       }
     }

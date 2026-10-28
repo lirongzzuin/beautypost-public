@@ -62,7 +62,17 @@ export interface DraftContext {
   media: MediaFact[]
   voiceSamples: string[]
   userBanned?: string[]
+  /** 샵 설정: 글 끝 고정 안내 문구(예약 방법 등), 해시태그 개수, 항상 넣을 해시태그 */
+  settings?: CaptionSettings
 }
+
+export interface CaptionSettings {
+  signature?: string | null
+  hashtagCount?: number
+  brandHashtags?: string[]
+}
+
+export const DEFAULT_HASHTAG_COUNT = 5
 
 export interface Checked<T> {
   draft: T
@@ -123,7 +133,8 @@ function baseVars(ctx: DraftContext) {
     booking: ctx.shop.booking ?? '',
     media: describeMedia(ctx.media),
     tone: TONE_LABELS[p.mood.copy.tone] ?? p.mood.copy.tone,
-    emoji: `${p.mood.copy.emojiPerParagraph[0]}~${p.mood.copy.emojiPerParagraph[1]}`,
+    // 레퍼런스 계정들은 글 전체에 이모지 0~3개 (항목 표시·문장 끝 장식). 문단당 값 × 2 를 글 전체 상한으로
+    emoji: String(p.mood.copy.emojiPerParagraph[1] * 2),
     sentenceLength: p.mood.copy.sentenceLength === 'short' ? '짧게' : '보통',
     vocabulary: p.industry.vocabulary.join(', '),
     banned: bannedList(ctx),
@@ -132,6 +143,25 @@ function baseVars(ctx: DraftContext) {
     voice: ctx.voiceSamples.slice(0, 5).map((v, i) => `예시${i + 1}: """${v.trim()}"""`).join('\n'),
     keyword: keywords[0] ?? '',
     subKeywords: keywords.slice(1).join(', '),
+    hasSignature: ctx.settings?.signature?.trim() ? '1' : '',
+    noSignature: ctx.settings?.signature?.trim() ? '' : '1',
+    hashtagCount: hashtagCount(ctx),
+  }
+}
+
+export function hashtagCount(ctx: DraftContext): number {
+  return Math.min(30, Math.max(0, ctx.settings?.hashtagCount ?? DEFAULT_HASHTAG_COUNT))
+}
+
+/** 해시태그 정리 기준: 지역+시술 태그 2개 → 샵 고정 태그 → 모델 제안 → (모자라면) 업종 기본 태그, 정확히 설정 개수 */
+export function hashtagOptions(ctx: DraftContext): Parameters<typeof normalizeHashtags>[1] {
+  const n = hashtagCount(ctx)
+  const keywords = keywordsFor(ctx.preset.industry.keywordPatterns, ctx.shop.region)
+  return {
+    priority: [...keywords.slice(0, 2).map((k) => k.replace(/\s+/g, '')), ...(ctx.settings?.brandHashtags ?? [])],
+    fill: ctx.preset.industry.hashtagSeeds,
+    min: n,
+    max: n,
   }
 }
 
@@ -148,9 +178,9 @@ async function rewriteIfBlocked(ai: AiClient, text: string, findings: Finding[])
   return object.text
 }
 
-async function checkInstagram(ai: AiClient, ctx: DraftContext, d: InstagramDraft, tagOpts: Parameters<typeof normalizeHashtags>[1]) {
+async function checkInstagram(ai: AiClient, ctx: DraftContext, d: InstagramDraft) {
   // 해시태그도 정책 검사: 금지(block) 표현이 든 태그는 뺀다
-  const tags = normalizeHashtags(d.hashtags, tagOpts).filter((t) => !hasBlocking(checkText(t, policyInput(ctx))))
+  const tags = normalizeHashtags(d.hashtags, hashtagOptions(ctx)).filter((t) => !hasBlocking(checkText(t, policyInput(ctx))))
   let draft = { ...d, hashtags: tags }
   let findings = checkText(draft.caption, policyInput(ctx))
   let rewritten = false
@@ -160,9 +190,12 @@ async function checkInstagram(ai: AiClient, ctx: DraftContext, d: InstagramDraft
     findings = checkText(fixed, policyInput(ctx))
     rewritten = true
   }
+  // 샵 고정 안내 문구도 검사한다 (AI 가 쓴 글이 아니라 고치지는 않고 표시만)
+  const signature = ctx.settings?.signature?.trim()
+  if (signature) findings = [...findings, ...checkText(signature, policyInput(ctx))]
   return {
     draft,
-    text: instagramText(draft.caption, draft.hashtags),
+    text: instagramText(draft.caption, draft.hashtags, signature),
     kakao: kakaoText(draft.caption, { name: ctx.shop.name, booking: ctx.shop.booking }),
     findings,
     rewritten,
@@ -218,8 +251,7 @@ export async function generateDrafts(
       : null,
   ])
 
-  const tagOpts = { priority: keywords.map((k) => k.replace(/\s+/g, '')), fill: ctx.preset.industry.hashtagSeeds }
-  const instagram = await Promise.all((ig?.object.candidates ?? []).slice(0, igCount).map((d) => checkInstagram(ai, ctx, d, tagOpts)))
+  const instagram = await Promise.all((ig?.object.candidates ?? []).slice(0, igCount).map((d) => checkInstagram(ai, ctx, d)))
   const blogs = await Promise.all((blog?.object.candidates ?? []).slice(0, blogCount).map((d) => checkBlog(ai, ctx, d, keywords[0] ?? '', photos)))
 
   return {
@@ -297,7 +329,9 @@ export function defaultSlotLine(role: string, ctx: DraftContext): string {
     case 'after':
       return '시술 후'
     case 'process':
-      return '꼼꼼하게 진행 중'
+      return '시술 과정'
+    case 'compare':
+      return ctx.shop.booking ? `예약 · ${ctx.shop.booking}` : '시술 전 · 후'
     case 'hook':
       return ctx.preset.purpose.label
     default:

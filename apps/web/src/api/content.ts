@@ -10,6 +10,15 @@ export interface PresetCatalog {
   formats: { id: string; label: string; kind: 'video' | 'photo' | 'both'; width: number; height: number }[]
 }
 
+export interface ContentSettings {
+  /** 모든 인스타 글 끝에 붙는 고정 안내 (예약 방법·위치 등) */
+  signature: string
+  hashtagCount: number
+  brandHashtags: string[]
+  instagramHandle: string
+  allowFaceBlur: boolean
+}
+
 export interface Brand {
   industry: string
   mood: string
@@ -17,6 +26,7 @@ export interface Brand {
   logoMediaId: string | null
   bookingLabel: string
   bookingUrl: string
+  settings: ContentSettings
 }
 
 export interface Media {
@@ -66,7 +76,7 @@ export interface CreateCommon {
 export const contentApi = {
   presets: () => api.get<{ data: PresetCatalog }>('/presets').then((r) => r.data),
   brand: () => api.get<{ data: Brand }>('/brand').then((r) => r.data),
-  saveBrand: (b: Partial<Brand>) => api.put<{ data: { ok: true } }>('/brand', b),
+  saveBrand: (b: Partial<Omit<Brand, 'settings'>> & { settings?: Partial<ContentSettings> }) => api.put<{ data: { ok: true } }>('/brand', b),
   ticket: (filename: string, contentType: string, size: number) =>
     api.post<{ data: UploadTicket }>('/upload/ticket', { filename, contentType, size }).then((r) => r.data),
   register: (body: Record<string, unknown>) => api.post<{ data: Media }>('/upload/register', body).then((r) => r.data),
@@ -75,6 +85,7 @@ export const contentApi = {
   previews: (id: string, industry?: string) =>
     api.post<{ data: { moodId: string; label: string; dataUrl: string }[] }>(`/media/${id}/previews${industry ? `?industry=${industry}` : ''}`).then((r) => r.data),
   drafts: (body: CreateCommon & { keywords?: string; customerId?: string }) => api.post<{ data: Drafts }>('/create/drafts', body).then((r) => r.data),
+  blog: (id: string) => api.post<{ data: { keyword: string; blog: BlogCandidate[] } }>(`/create/drafts/${id}/blog`).then((r) => r.data),
   feedback: (id: string, body: { channel: 'instagram' | 'blog'; index: number; text: string }) => api.post(`/create/drafts/${id}/feedback`, body),
   photos: (body: CreateCommon & { formats: string[]; overlayText?: string; useLogo?: boolean }) =>
     api.post<{ data: { outputs: PhotoOutput[]; clamped: string[] } }>('/create/photos', body).then((r) => r.data),

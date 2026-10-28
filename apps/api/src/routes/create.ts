@@ -7,8 +7,8 @@ import { aiRateLimit, apiRateLimit } from '../middleware/ratelimit.js'
 import { ApiError } from '../services/errors.js'
 import { getAi } from '../services/ai.js'
 import { industryOf, loadShop } from '../services/context.js'
-import { assertConsent, ensureAnalysis, ownedMedia } from '../services/media.js'
-import { createDrafts, saveFeedback } from '../services/drafts.js'
+import { assertConsent, ensureAnalyses, ownedMedia } from '../services/media.js'
+import { createBlogDrafts, createDrafts, saveFeedback } from '../services/drafts.js'
 import { makePhotos } from '../services/photos.js'
 import { requestVideo } from '../services/videos.js'
 import { MoodOverrides, getRegistry } from '@beautypost/preset'
@@ -30,14 +30,24 @@ const Common = {
   mood: z.string().nullish(),
 }
 
-// POST /api/create/drafts — 인스타 후보 3 · 블로그 후보 2 (복사해서 바로 붙여넣기)
+// POST /api/create/drafts — 인스타 후보 3 (복사해서 바로 붙여넣기). 블로그는 기다리지 않게 따로 (/drafts/:id/blog)
 create.post('/drafts', entitlementMiddleware, aiRateLimit, async (c) => {
-  const b = parse(z.object({ ...Common, keywords: z.string().max(300).nullish(), customerId: z.string().uuid().nullish() }), await c.req.json().catch(() => null))
+  const b = parse(
+    z.object({ ...Common, keywords: z.string().max(500).nullish(), customerId: z.string().uuid().nullish(), blog: z.number().int().min(0).max(3).optional() }),
+    await c.req.json().catch(() => null),
+  )
   const db = getDb()
   const userId = c.get('userId')
   const ctx = await loadShop(db, userId)
   const rows = await ownedMedia(db, userId, b.mediaIds)
   return c.json({ data: await createDrafts(db, getAi(), ctx, rows, b) })
+})
+
+// POST /api/create/drafts/:id/blog — 블로그 후보 (블로그 탭을 열 때 만든다, 한 번 만들면 저장된 것을 돌려준다)
+create.post('/drafts/:id/blog', entitlementMiddleware, aiRateLimit, async (c) => {
+  const db = getDb()
+  const userId = c.get('userId')
+  return c.json({ data: await createBlogDrafts(db, getAi(), await loadShop(db, userId), c.req.param('id')!) })
 })
 
 // POST /api/create/drafts/:id/feedback — 고른 후보·고친 글 저장 (다음 생성의 말투에 반영)
@@ -64,14 +74,14 @@ create.post('/photos', entitlementMiddleware, aiRateLimit, async (c) => {
   const rows = await ownedMedia(db, userId, b.mediaIds)
   // 얼굴 여부는 분석으로 안다 → 동의 확인 전에 분석부터 (분석은 사진당 1회 캐시)
   const industry = getRegistry().industry(industryOf(ctx, b.industry))
-  for (const r of rows) await ensureAnalysis(db, getAi(), r, industry.label)
+  await ensureAnalyses(db, getAi(), rows, industry.label)
   assertConsent(rows)
   return c.json({ data: await makePhotos(db, ctx, rows, b) })
 })
 
 // POST /api/create/videos — 영상 작업 등록 (렌더 작업자가 처리)
 create.post('/videos', entitlementMiddleware, aiRateLimit, async (c) => {
-  const b = parse(z.object({ ...Common, format: z.string(), keywords: z.string().max(300).nullish() }), await c.req.json().catch(() => null))
+  const b = parse(z.object({ ...Common, format: z.string(), keywords: z.string().max(500).nullish() }), await c.req.json().catch(() => null))
   const db = getDb()
   const userId = c.get('userId')
   const ctx = await loadShop(db, userId)

@@ -1,18 +1,96 @@
 {
   "$schema": "../../_schema/moods.schema.json",
-  "id": "warm-natural", "version": 1, "label": "웜·내추럴", "order": 20,
+  "id": "warm-natural",
+  "version": 2,
+  "label": "웜·내추럴",
+  "order": 20,
   "description": "따뜻한 화이트밸런스, 부드러운 대비, 살짝 바랜 필름 톤. 크림색 자막 박스, 느긋한 컷과 크로스페이드",
-  "palette": { "primary": "#f3e9dc", "accent": "#a0785a", "background": "#faf6f0", "text": "#3b2f2a" },
-  "grade": { "exposure": 0.05, "temperature": 8, "tint": 2, "contrast": -6, "saturation": -4, "vibrance": 4, "fade": 6 },
-  "photo": { "frame": "none", "overlay": { "font": "pretendard", "weight": "Medium", "color": "#3b2f2a", "background": "#f3e9dc", "position": "bottom" } },
-  "video": {
-    "durationSec": [15, 25], "cutSec": [1.5, 2.5], "transition": "crossfade", "transitionSec": 0.4, "motion": "slow-push",
-    "captions": {
-      "main": { "font": "pretendard", "weight": "Medium", "color": "#3b2f2a", "background": "#f3e9dc", "position": "lower-third" },
-      "emphasis": { "font": "nanum-myeongjo", "weight": "Bold", "color": "#ffffff", "stroke": "#3b2f2a", "position": "center" },
-      "label": { "font": "pretendard", "weight": "Regular", "color": "#a0785a", "position": "top", "animation": "none" }
-    },
-    "music": { "genres": ["acoustic", "folk"], "bpm": [75, 95], "energy": "low" }
+  "palette": {
+    "primary": "#f3e9dc",
+    "accent": "#a0785a",
+    "background": "#faf6f0",
+    "text": "#3b2f2a"
   },
-  "copy": { "tone": "friendly", "emojiPerParagraph": [0, 1], "sentenceLength": "medium" }
+  "grade": {
+    "exposure": 0.05,
+    "temperature": 8,
+    "tint": 2,
+    "contrast": -6,
+    "saturation": -4,
+    "vibrance": 4,
+    "fade": 6
+  },
+  "photo": {
+    "frame": "none",
+    "overlay": {
+      "font": "pretendard",
+      "weight": "Medium",
+      "color": "#3b2f2a",
+      "background": "#f3e9dc",
+      "position": "bottom"
+    }
+  },
+  "video": {
+    "durationSec": [
+      10,
+      14
+    ],
+    "cutSec": [
+      1.3,
+      2.0
+    ],
+    "transition": "crossfade",
+    "transitionSec": 0.3,
+    "motion": "slow-push",
+    "captions": {
+      "main": {
+        "font": "pretendard",
+        "weight": "Medium",
+        "color": "#ffffff",
+        "background": "#3b2f2a",
+        "backgroundOpacity": 0.42,
+        "position": "lower-third"
+      },
+      "emphasis": {
+        "font": "nanum-myeongjo",
+        "weight": "Bold",
+        "color": "#ffffff",
+        "shadow": true,
+        "position": "center"
+      },
+      "label": {
+        "font": "cormorant-italic",
+        "weight": "Regular",
+        "color": "#ffffff",
+        "shadow": true,
+        "position": "top",
+        "animation": "none"
+      }
+    },
+    "labelText": {
+      "before": "Before",
+      "after": "After",
+      "process": "Process"
+    },
+    "watermark": true,
+    "music": {
+      "genres": [
+        "acoustic",
+        "folk"
+      ],
+      "bpm": [
+        75,
+        95
+      ],
+      "energy": "low"
+    }
+  },
+  "copy": {
+    "tone": "friendly",
+    "emojiPerParagraph": [
+      0,
+      1
+    ],
+    "sentenceLength": "medium"
+  }
 }

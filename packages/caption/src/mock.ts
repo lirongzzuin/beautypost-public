@@ -24,22 +24,22 @@ export const mockResponder: MockResponder = (req) => {
         colors: ['베이지'],
         faces: [],
         focus: { x: 0.5, y: 0.5 },
+        areaBox: { x: 0.3, y: 0.35, w: 0.4, h: 0.2 },
         textInImage: '',
         quality: { brightness: 'ok', blurry: false },
       }
     }
     case 'caption-instagram':
       return {
-        candidates: ['결과형', '질문형', '공감형'].slice(0, count).map((angle, i) => ({
+        candidates: ['시술 기록', '한 장면 대화', '짧은 팁'].slice(0, count).map((angle, i) => ({
           angle,
           caption: [
-            i === 1 ? `${industry}, 어떤 디자인이 나한테 맞을까요?` : i === 2 ? `매일 아침 ${industry} 고민되셨죠` : `오늘 ${industry} 결과 보고 가세요`,
+            i === 1 ? `“티 안 나게 할 수 있을까요?”` : i === 2 ? `${industry} 디자인은 얼굴형에서 시작해요.` : `비어 있던 부분을 채우고 싶다고 오신 고객님.`,
             '',
-            '얼굴형과 평소 스타일을 먼저 여쭤보고',
+            '얼굴형과 기존 결 방향을 먼저 보고',
             '디자인을 함께 정했어요.',
             '',
-            `${shop}에서 1:1로 꼼꼼하게 진행합니다.`,
-            '편하실 때 DM으로 예약 문의 주세요.',
+            `${shop}이 생각하는 ${industry}는 원래 내 것처럼 자연스러운 모습이에요.`,
           ].join('\n'),
           hashtags: [`#${industry.replace(/\s+/g, '')}`, '#뷰티샵', '#1인샵'],
         })),
@@ -65,7 +65,7 @@ export const mockResponder: MockResponder = (req) => {
     }
     case 'video-captions': {
       const slots = [...p.matchAll(/^(\d+)\. \[(\w+)\] ([^—\n]+)/gm)].map((m) => ({ slot: Number(m[1]), role: m[2]!, intent: m[3]!.trim() }))
-      const by: Record<string, string> = { hook: `${industry} 결과`, before: '시술 전 고민', after: '자연스러운 마무리', process: '꼼꼼한 과정', cta: `${shop} 예약 문의`, info: '자세한 안내', detail: '디테일', shop: '편안한 공간', owner: '원장님 1:1', review: '고객님 후기' }
+      const by: Record<string, string> = { hook: `${industry} 결과`, before: '시술 전 고민', after: '자연스러운 마무리', process: '꼼꼼한 과정', compare: '전후 비교', cta: `${shop} 예약 문의`, info: '자세한 안내', detail: '디테일', shop: '편안한 공간', owner: '원장님 1:1', review: '고객님 후기' }
       return { lines: slots.map((s) => ({ slot: s.slot, text: by[s.role] ?? s.intent })) }
     }
     default:

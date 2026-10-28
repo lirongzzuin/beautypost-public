@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { MoodPreset, OutputFormat, PurposePreset, type TextStyle } from '@beautypost/preset'
+import { GradeLimits, MoodPreset, OutputFormat, PurposePreset, type TextStyle } from '@beautypost/preset'
 
-// filmcraft 어댑터: 프리셋(무드 × 목적 템플릿 × 포맷) + 올린 사진·영상 → filmcraft 의 plan.json · profile.json.
-// 입출력이 없는 순수 함수만 둔다. 파일 내려받기·카드 그리기·filmcraft 실행은 렌더 작업자(apps/worker)가 한다.
+// 영상 구성: 프리셋(무드 × 목적 템플릿 × 포맷) + 올린 사진·영상 → 장면 목록(VideoPlan).
+// 렌더 엔진 두 가지가 같은 장면 목록을 쓴다: 기본 엔진(@beautypost/reel, ffmpeg 직접 합성)과 filmcraft 어댑터(아래 toProfile·toFilmcraftPlan).
+// 입출력이 없는 순수 함수만 둔다. 파일 내려받기·렌더 실행은 렌더 작업자(apps/worker)가 한다.
 // filmcraft 쪽 진입점: /Users/…/filmcraft `./br render <dir> --profile profile.json` (babyreel/render.py)
 
 // ─── 작업 입력 (API 가 만들어 작업 큐에 넣는다) ─────────────────────────────────
@@ -16,6 +17,8 @@ export const RenderMedia = z.object({
   role: z.string().nullable(),
   durationSec: z.number().nullable().optional(),
   focus: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).nullable().optional(),
+  /** 시술 부위 영역 (0~1) — 클로즈업 구도. 예전 분석에는 없다 */
+  area: Box.nullable().optional(),
   /** 사진에서 흐리게 할 얼굴 (동의 대신 가림을 고른 경우). 영상은 가림을 지원하지 않아 API 가 막는다 */
   blurFaces: z.array(Box).default([]),
 })
@@ -28,7 +31,15 @@ export const RenderSpec = z.object({
   format: OutputFormat,
   videoDurationSec: z.tuple([z.number(), z.number()]),
   industryLabel: z.string(),
-  shop: z.object({ name: z.string(), region: z.string(), booking: z.string().nullable().optional() }),
+  shop: z.object({
+    name: z.string(),
+    region: z.string(),
+    booking: z.string().nullable().optional(),
+    /** 화면 워터마크 (예: @example_shop). 없으면 샵 이름 */
+    handle: z.string().nullable().optional(),
+  }),
+  /** 업종 보정 한계 (작업자가 사진 통계로 자동 보정을 더할 때 스타일 값에 적용) */
+  gradeLimits: GradeLimits.optional(),
   brandColor: z.string().nullable().optional(),
   logoUrl: z.string().nullable().optional(),
   media: z.array(RenderMedia),
@@ -54,9 +65,14 @@ export interface PlannedClip {
   start: number
   end: number
   caption?: { text: string; style: 'sub' | 'big' }
+  /** 장면 이름표 (무드의 labelText, 예: "Before") */
   chip?: string
   punch?: boolean
   focus: { x: number; y: number }
+  /** 비교 장면: 비포(위)·애프터(아래) 사진 */
+  compare?: { before: RenderMedia; after: RenderMedia }
+  /** 샵 이름·예약 안내 띠 */
+  brand?: boolean
 }
 
 export interface VideoPlan {
@@ -67,7 +83,17 @@ export interface VideoPlan {
   activeSlots: number[]
 }
 
-const CHIP_LABEL: Record<string, string> = { before: '시술 전', after: '시술 후', process: '시술 과정' }
+function chipLabel(mood: MoodPreset, role: string): string | undefined {
+  const t = mood.video.labelText
+  return role === 'before' ? t.before : role === 'after' ? t.after : role === 'process' ? t.process : undefined
+}
+
+/** 비교 장면에 쓸 비포·애프터 한 장씩 (사진 우선. 영상은 한 화면에 위아래로 놓을 수 없어 제외) */
+export function compareMedia(media: RenderMedia[]): { before: RenderMedia; after: RenderMedia } | null {
+  const before = media.find((m) => m.role === 'before' && m.kind === 'image')
+  const after = media.find((m) => m.role === 'after' && m.kind === 'image')
+  return before && after ? { before, after } : null
+}
 
 /** 슬롯마다 쓸 미디어. 같은 역할을 여러 슬롯이 쓰면 hook 은 첫 장, 본 슬롯은 전부 */
 export function assignMedia(purpose: PurposePreset, media: RenderMedia[]): Map<number, RenderMedia[]> {
@@ -119,9 +145,10 @@ export function planVideo(spec: RenderSpec): VideoPlan {
   const warnings: string[] = []
   const { purpose, mood } = spec
   const assigned = assignMedia(purpose, spec.media)
+  const pair = compareMedia(spec.media)
   const active = purpose.video.slots
     .map((slot, i) => ({ slot, i }))
-    .filter(({ slot, i }) => slot.source === 'card' || assigned.has(i))
+    .filter(({ slot, i }) => slot.source === 'card' || (slot.source === 'compare' ? !!pair : assigned.has(i)))
   for (const [i, slot] of purpose.video.slots.entries()) {
     if (slot.source === 'media' && !slot.optional && !assigned.has(i)) {
       warnings.push(`"${slot.role}" 장면에 쓸 ${slot.mediaRole} 사진·영상이 없어 건너뜁니다`)
@@ -135,7 +162,14 @@ export function planVideo(spec: RenderSpec): VideoPlan {
     const line = spec.lines[String(i)] ?? ''
     const slotDur = durs[k]!
     if (slot.source === 'card') {
-      clips.push({ slotIndex: i, role: slot.role, card: cardFor(spec, slot.role, line), start: 0, end: clamp(slotDur, 0.8, 8), focus: { x: 0.5, y: 0.5 } })
+      clips.push({ slotIndex: i, role: slot.role, card: cardFor(spec, slot.role, line), start: 0, end: clamp(slotDur, 0.8, 8), focus: { x: 0.5, y: 0.5 }, brand: slot.brand })
+      return
+    }
+    if (slot.source === 'compare') {
+      clips.push({
+        slotIndex: i, role: slot.role, start: 0, end: clamp(slotDur, 1, 6), focus: pair!.after.focus ?? { x: 0.5, y: 0.5 },
+        compare: pair!, media: pair!.after, caption: line ? { text: line, style: 'sub' } : undefined, brand: slot.brand,
+      })
       return
     }
     let list = assigned.get(i)!
@@ -169,9 +203,10 @@ export function planVideo(spec: RenderSpec): VideoPlan {
         start: round(start),
         end: round(end),
         caption: line ? { text: line, style: slot.role === 'hook' ? 'big' : 'sub' } : undefined,
-        chip: j === 0 ? CHIP_LABEL[slot.role] : undefined,
+        chip: chipLabel(mood, slot.role),
         punch: mood.video.motion === 'punch' && slot.role === 'after' && j === 0,
         focus: m.focus ?? { x: 0.5, y: 0.5 },
+        brand: slot.brand && j === list.length - 1,
       })
     })
   })

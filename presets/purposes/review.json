@@ -1,17 +1,101 @@
 {
   "$schema": "../_schema/purposes.schema.json",
-  "id": "review", "version": 1, "label": "고객 후기", "order": 40,
+  "id": "review",
+  "version": 2,
+  "label": "고객 후기",
+  "order": 40,
   "description": "고객의 고민 → 시술 → 만족. 고객 말(후기 캡처)이 있으면 그대로 인용, 없으면 지어내지 않음",
-  "legacyThemes": ["review"],
-  "requiredMedia": [{ "role": "after", "min": 1, "max": 4 }, { "role": "review", "min": 0, "max": 2 }, { "role": "before", "min": 0, "max": 2 }],
-  "copyStructure": ["hook", "empathy", "point", "trust", "cta"],
-  "video": { "slots": [
-    { "role": "hook", "durationSec": [1.0, 2.0], "source": "media", "mediaRole": "after", "caption": { "intent": "후기의 핵심 한 줄", "maxChars": 14 } },
-    { "role": "review", "durationSec": [2.0, 4.0], "source": "media", "mediaRole": "review", "optional": true, "caption": { "intent": "고객 후기 인용(실제 문구만)", "maxChars": 18 } },
-    { "role": "before", "durationSec": [1.5, 3.0], "source": "media", "mediaRole": "before", "optional": true, "caption": { "intent": "시술 전 고민", "maxChars": 16 } },
-    { "role": "after", "durationSec": [2.5, 6.0], "source": "media", "mediaRole": "after", "caption": { "intent": "결과", "maxChars": 16 } },
-    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "예약 유도 + 샵 이름", "maxChars": 20 } }
-  ] },
-  "photo": { "layout": "carousel" },
-  "sameGradeAcrossRoles": ["before", "after"]
+  "legacyThemes": [
+    "review"
+  ],
+  "requiredMedia": [
+    {
+      "role": "after",
+      "min": 1,
+      "max": 4
+    },
+    {
+      "role": "review",
+      "min": 0,
+      "max": 2
+    },
+    {
+      "role": "before",
+      "min": 0,
+      "max": 2
+    }
+  ],
+  "copyStructure": [
+    "hook",
+    "empathy",
+    "point",
+    "trust",
+    "cta"
+  ],
+  "video": {
+    "slots": [
+      {
+        "role": "hook",
+        "durationSec": [
+          1.2,
+          1.6
+        ],
+        "source": "media",
+        "mediaRole": "after",
+        "caption": {
+          "intent": "후기의 핵심 한 줄",
+          "maxChars": 12
+        }
+      },
+      {
+        "role": "review",
+        "durationSec": [
+          2.0,
+          4.0
+        ],
+        "source": "media",
+        "mediaRole": "review",
+        "optional": true,
+        "caption": {
+          "intent": "고객 후기 인용(실제 문구만)",
+          "maxChars": 18
+        }
+      },
+      {
+        "role": "before",
+        "durationSec": [
+          1.5,
+          3.0
+        ],
+        "source": "media",
+        "mediaRole": "before",
+        "optional": true,
+        "caption": {
+          "intent": "시술 전 고민",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "after",
+        "durationSec": [
+          1.5,
+          3.0
+        ],
+        "source": "media",
+        "mediaRole": "after",
+        "caption": {
+          "intent": "결과",
+          "maxChars": 16
+        },
+        "brand": true
+      }
+    ]
+  },
+  "photo": {
+    "layout": "carousel"
+  },
+  "sameGradeAcrossRoles": [
+    "before",
+    "after"
+  ]
 }

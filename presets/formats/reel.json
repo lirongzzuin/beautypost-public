@@ -1,4 +1,22 @@
-{ "$schema": "../_schema/formats.schema.json", "id": "reel", "label": "릴스 (9:16)", "kind": "video",
-  "width": 1080, "height": 1920, "fps": 30, "durationSec": [15, 30],
-  "safeArea": { "top": 220, "bottom": 420, "side": 120 },
-  "encode": { "videoKbps": 12000, "audioKbps": 128 } }
+{
+  "$schema": "../_schema/formats.schema.json",
+  "id": "reel",
+  "label": "릴스 (9:16)",
+  "kind": "video",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "durationSec": [
+    6,
+    60
+  ],
+  "safeArea": {
+    "top": 220,
+    "bottom": 420,
+    "side": 120
+  },
+  "encode": {
+    "videoKbps": 12000,
+    "audioKbps": 128
+  }
+}

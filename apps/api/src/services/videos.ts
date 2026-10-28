@@ -7,8 +7,8 @@ import { eq } from 'drizzle-orm'
 import { schema, type Db } from '../db/index.js'
 import { enqueue } from '../jobs/queue.js'
 import { ApiError } from './errors.js'
-import { assertConsent, blurBoxes, ensureAnalysis, type MediaRow } from './media.js'
-import { resolveFor, type ShopContext } from './context.js'
+import { assertConsent, blurBoxes, ensureAnalyses, type MediaRow } from './media.js'
+import { captionSettings, resolveFor, type ShopContext } from './context.js'
 
 // 영상 만들기 요청 → 작업 입력(RenderSpec) 작성 → 작업 큐 등록. 실제 렌더링은 작업자가 한다 (즉시 응답).
 
@@ -35,7 +35,7 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
   if (dup && dup.status !== 'failed') return { jobId: dup.id, status: dup.status, warnings: [], estimatedSeconds: 0, lines: {} }
   if (dup) key = `${key}:${Date.now()}`
 
-  for (const r of rows) await ensureAnalysis(db, ai, r, p.industry.label)
+  await ensureAnalyses(db, ai, rows, p.industry.label)
   assertConsent(rows)
 
   const media: RenderMedia[] = rows.map((r) => ({
@@ -45,6 +45,7 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
     role: r.role ?? 'any',
     durationSec: r.durationSeconds,
     focus: (r.analysis as unknown as MediaAnalysis | null)?.focus ?? null,
+    area: r.type === 'image' ? (r.analysis as unknown as MediaAnalysis | null)?.areaBox ?? null : null,
     blurFaces: r.type === 'image' ? blurBoxes(r) : [],
   }))
   const base = {
@@ -54,7 +55,8 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
     format: p.format,
     videoDurationSec: p.videoDurationSec,
     industryLabel: p.industry.label,
-    shop: ctx.shop,
+    gradeLimits: p.industry.gradeLimits,
+    shop: { ...ctx.shop, handle: ctx.settings.instagramHandle || null },
     brandColor: ctx.brandPreset?.brandColor ?? null,
     logoUrl: null as string | null,
     media,
@@ -79,6 +81,7 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
       media: rows.map((r, i) => ({ index: i + 1, role: r.role, kind: r.type, analysis: r.analysis as unknown as MediaAnalysis | null })),
       voiceSamples: [],
       userBanned: ctx.profile.prohibitedPhrases,
+      settings: captionSettings(ctx),
     },
     slots,
   )

@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "try": "tsx scripts/try.ts"
   },
   "dependencies": {
     "@beautypost/ai": "workspace:*",
@@ -22,6 +23,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "*",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "tsx": "^4.19.0",
+    "sharp": "^0.34.4"
   }
 }

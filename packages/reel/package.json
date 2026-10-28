@@ -1,0 +1,31 @@
+{
+  "name": "@beautypost/reel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "try": "tsx scripts/try.ts"
+  },
+  "dependencies": {
+    "@beautypost/photocraft": "workspace:*",
+    "@beautypost/preset": "workspace:*",
+    "@beautypost/render": "workspace:*",
+    "ffmpeg-static": "5.3.0",
+    "sharp": "^0.34.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "*",
+    "vitest": "^3.2.4",
+    "tsx": "^4.19.0"
+  }
+}

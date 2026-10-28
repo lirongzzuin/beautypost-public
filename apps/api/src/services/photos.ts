@@ -64,7 +64,7 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
   const outputs: PhotoOutput[] = []
   let clamped: string[] = []
 
-  const save = async (res: PhotoResult, formatId: string, kind: PhotoOutput['kind'], sources: MediaRow[], role: string | null) => {
+  const save = async (res: PhotoResult, formatId: string, kind: PhotoOutput['kind'], sources: MediaRow[], role: string | null): Promise<PhotoOutput> => {
     const key = makeKey('photos', ctx.profile.userId, `${formatId}.jpg`)
     const obj = await storage.put(key, res.data, res.contentType)
     const [row] = await db
@@ -75,9 +75,12 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
         origin: 'photocraft', parentId: sources[0]!.id, formatId, role, consent: sources.some((s) => s.consent === 'granted') ? 'granted' : 'not_needed',
       })
       .returning()
-    outputs.push({ mediaId: row!.id, url: obj.url, formatId, kind, sourceIds: sources.map((s) => s.id), width: res.width, height: res.height })
+    return { mediaId: row!.id, url: obj.url, formatId, kind, sourceIds: sources.map((s) => s.id), width: res.width, height: res.height }
   }
 
+  // 형식 × 사진마다 독립 작업 → 동시에 (sharp 는 스레드 풀에서 병렬). 결과 순서는 요청 순서대로
+  type Task = () => Promise<{ res: PhotoResult; formatId: string; kind: PhotoOutput['kind']; sources: MediaRow[]; role: string | null }>
+  const tasks: Task[] = []
   for (const formatId of req.formats) {
     const p: ResolvedPreset = resolveFor(ctx, { purpose: req.purpose, industry: req.industry, mood: req.mood, format: formatId, adjust: req.adjust })
     clamped = p.clamped
@@ -90,22 +93,45 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
     const before = images.find((r) => r.role === 'before')
     const after = images.find((r) => r.role === 'after')
     if (p.purpose.photo.layout === 'before-after-split' && before && after) {
-      const res = await beforeAfter({
-        ...common,
-        before: { data: buffers[images.indexOf(before)]!, focus: focusOf(before), blur: blurBoxes(before) },
-        after: { data: buffers[images.indexOf(after)]!, focus: focusOf(after), blur: blurBoxes(after) },
-        labels: { before: 'BEFORE', after: 'AFTER', style: p.mood.photo.overlay },
-        background: p.mood.palette.background,
-        denoise,
-      })
-      await save(res, formatId, 'collage', [before, after], null)
+      const label = p.mood.video.captions.label
+      tasks.push(async () => ({
+        res: await beforeAfter({
+          ...common,
+          before: { data: buffers[images.indexOf(before)]!, focus: focusOf(before), blur: blurBoxes(before) },
+          after: { data: buffers[images.indexOf(after)]!, focus: focusOf(after), blur: blurBoxes(after) },
+          labels: { before: p.mood.video.labelText.before, after: p.mood.video.labelText.after, style: { ...label, stroke: null, background: null, shadow: true } },
+          background: p.mood.video.dividerColor,
+          gap: Math.max(4, Math.round(fmt.width * 0.006)),
+          denoise,
+        }),
+        formatId, kind: 'collage', sources: [before, after], role: null,
+      }))
     }
     for (const [i, row] of images.entries()) {
-      const res = await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), blur: blurBoxes(row), denoise })
-      await save(res, formatId, 'single', [row], row.role)
+      tasks.push(async () => ({
+        res: await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), blur: blurBoxes(row), denoise }),
+        formatId, kind: 'single', sources: [row], role: row.role,
+      }))
     }
   }
+  const done = await limitAll(tasks, 4)
+  for (const d of await Promise.all(done.map((d) => save(d.res, d.formatId, d.kind, d.sources, d.role)))) outputs.push(d)
   return { outputs, clamped }
+}
+
+/** 작업들을 최대 n 개씩 동시에, 결과는 입력 순서대로 */
+async function limitAll<T>(tasks: (() => Promise<T>)[], n: number): Promise<T[]> {
+  const out: T[] = new Array(tasks.length)
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.min(n, tasks.length) }, async () => {
+      while (next < tasks.length) {
+        const i = next++
+        out[i] = await tasks[i]!()
+      }
+    }),
+  )
+  return out
 }
 
 /** 원장님 사진 한 장에 무드 5개를 입혀 본 작은 미리보기 (data URL) */

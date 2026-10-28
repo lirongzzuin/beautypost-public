@@ -29,21 +29,31 @@ describe('slotDurations', () => {
 describe('planVideo — 비포·애프터', () => {
   const media = [m('b1', 'before'), m('a1', 'after'), m('a2', 'after'), m('p1', 'process', 'video', 12)]
 
-  it('hook=애프터 1장, 비포, 과정(영상 가운데 구간), 애프터, 예약 카드 순서', () => {
+  it('hook=애프터 1장, 비포, 과정(영상 가운데 구간), 애프터, 위아래 비교 + 샵 띠 (카드로 끝나지 않음)', () => {
     const plan = planVideo(spec('before-after', media))
-    expect(plan.clips.map((c) => c.role)).toEqual(['hook', 'before', 'process', 'after', 'after', 'cta'])
+    expect(plan.clips.map((c) => c.role)).toEqual(['hook', 'before', 'process', 'after', 'compare']) // 애프터 2장 중 1장은 컷이 너무 짧아져 뺀다
     const proc = plan.clips.find((c) => c.role === 'process')!
     expect(proc.start).toBeGreaterThan(0) // 12초 영상의 가운데
     expect(proc.end).toBeLessThanOrEqual(12)
-    expect(plan.clips.at(-1)!.card?.lines[0]!.text).toBe('뷰티룸')
+    const last = plan.clips.at(-1)!
+    expect(last.compare?.before.id).toBe('b1')
+    expect(last.compare?.after.id).toBe('a1')
+    expect(last.brand).toBe(true)
+    expect(plan.clips.some((c) => c.card)).toBe(false)
     expect(plan.clips[0]!.caption?.style).toBe('big')
-    expect(plan.clips[1]!.chip).toBe('시술 전')
+    expect(plan.clips[1]!.chip).toBe('Before')
+    expect(plan.clips[3]!.chip).toBe('After')
   })
 
-  it('길이는 무드 선호(15~22초)와 포맷 범위 안', () => {
+  it('비교할 비포·애프터 사진이 없으면 비교 장면을 빼고, 영상만으로는 비교하지 않는다', () => {
+    const plan = planVideo(spec('before-after', [m('b1', 'before', 'video', 5), m('a1', 'after')]))
+    expect(plan.clips.some((c) => c.role === 'compare')).toBe(false)
+  })
+
+  it('길이는 무드 선호(깔끔 9~13초) 근처 — 레퍼런스 릴스처럼 짧게', () => {
     const plan = planVideo(spec('before-after', media))
-    expect(plan.total).toBeGreaterThanOrEqual(14)
-    expect(plan.total).toBeLessThanOrEqual(22.5)
+    expect(plan.total).toBeGreaterThanOrEqual(8)
+    expect(plan.total).toBeLessThanOrEqual(14)
   })
 
   it('필수 장면 재료가 없으면 건너뛰고 알려 준다, 선택 장면은 조용히 생략', () => {
@@ -84,7 +94,7 @@ describe('filmcraft 프로필·plan', () => {
     expect(prof.style.grade_contrast).toBe(12)
     expect(prof.style.fun_font).toBe('NanumMyeongjo')
     expect(prof.style.video_transition).toBe('')
-    expect(toProfile(spec('process', [m('p', 'process')], { mood: 'warm-natural' }), fam).style).toMatchObject({ video_transition: 'cross_dissolve', video_transition_frames: 12 })
+    expect(toProfile(spec('process', [m('p', 'process')], { mood: 'warm-natural' }), fam).style).toMatchObject({ video_transition: 'cross_dissolve', video_transition_frames: 9 })
   })
 
   it('스토리는 예약 스티커 자리 아래로 자막이 내려가지 않게 하단 세이프존을 올린다', () => {

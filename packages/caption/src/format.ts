@@ -40,8 +40,9 @@ export function normalizeHashtags(tags: string[], opts: { priority?: string[]; f
   return out.slice(0, max)
 }
 
-export function instagramText(caption: string, hashtags: string[]): string {
-  return `${caption.trim()}\n\n${hashtags.join(' ')}`
+/** 본문 → (샵 고정 안내 문구) → 해시태그. 해시태그가 없으면 그 줄은 뺀다 */
+export function instagramText(caption: string, hashtags: string[], signature?: string | null): string {
+  return [caption.trim(), signature?.trim(), hashtags.join(' ')].filter(Boolean).join('\n\n')
 }
 
 /** 네이버 블로그에 붙여넣기 좋은 텍스트. [사진 N] 은 원장님이 사진을 넣을 자리 */

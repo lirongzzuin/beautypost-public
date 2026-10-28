@@ -6,8 +6,11 @@ import sharp from 'sharp'
 import { MoodPreset, getRegistry } from '@beautypost/preset'
 import { processPhoto, renderCard } from '@beautypost/photocraft'
 import { RenderSpec, planVideo, toFilmcraftPlan, toProfile } from '@beautypost/render'
+import { renderReel } from '@beautypost/reel'
 
-// 렌더 작업 하나: 입력 검증 → 내려받기 → (사진 얼굴 가림) → 카드 그리기 → plan/profile → filmcraft → 결과 파일.
+// 렌더 작업 하나: 입력 검증 → 내려받기 → (사진 얼굴 가림) → 엔진 → 결과 파일.
+//   엔진 native(기본): @beautypost/reel — 프레임을 직접 합성해 ffmpeg 로 굽는다 (15초 영상 수 초)
+//   엔진 filmcraft: 카드 그리기 → plan/profile → FilmCraft (예전 방식, RENDER_ENGINE=filmcraft)
 // 큐·업로드는 모른다 (main.ts 가 담당). 로컬에서 바로 돌려 볼 수 있다 (cli.ts).
 
 /** 다시 해도 같은 결과인 실패 (입력 오류). 재시도하지 않는다 */
@@ -24,6 +27,8 @@ export interface PipelineOptions {
   allowFileUrls?: boolean
   /** 육아 채널 자동화 잠금을 기다리는 최대 시간 (기본 30분) */
   lockWaitMs?: number
+  /** 렌더 엔진 (기본 native) */
+  engine?: 'native' | 'filmcraft'
 }
 
 export interface PipelineResult {
@@ -119,7 +124,8 @@ export async function renderJob(raw: unknown, jobId: string, opts: PipelineOptio
 
   await opts.stage?.('download', 5)
   const paths: Record<string, string> = {}
-  const used = [...new Map(plan.clips.filter((c) => c.media).map((c) => [c.media!.id, c.media!])).values()]
+  // 비교 장면의 비포·애프터도 (같은 슬롯에 안 들어간 사진일 수 있다)
+  const used = [...new Map(plan.clips.flatMap((c) => [c.media, c.compare?.before, c.compare?.after]).filter((m) => !!m).map((m) => [m!.id, m!])).values()]
   let n = 0
   for (const m of used) {
     let file = await download(m.url, join(mediaDir, m.id), opts.apiUrl, opts.signal, opts.allowFileUrls)
@@ -134,6 +140,20 @@ export async function renderJob(raw: unknown, jobId: string, opts: PipelineOptio
     }
     paths[m.id] = file
     await opts.stage?.('download', 5 + Math.round((++n / used.length) * 15))
+  }
+
+  if ((opts.engine ?? 'native') === 'native') {
+    await opts.stage?.('render', 25)
+    const r = await renderReel({
+      spec,
+      plan,
+      files: paths,
+      out: { video: join(jobDir, 'reel.mp4'), cover: join(jobDir, 'cover.jpg') },
+      signal: opts.signal,
+      onProgress: (x) => void opts.stage?.('render', 25 + Math.round(x * 63)),
+    })
+    await opts.stage?.('render', 90)
+    return { video: r.video, cover: r.cover, width: r.width, height: r.height, duration: r.duration, qa: [], warnings: [...plan.warnings] }
   }
 
   await opts.stage?.('prepare', 22)

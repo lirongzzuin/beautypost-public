@@ -1,7 +1,7 @@
 import { RAW_PROMPTS } from '@beautypost/preset'
 
 // 프롬프트 템플릿: presets/prompts/<id>@<version>.md (코드에 하드코딩하지 않음)
-// 문법: {{변수}}, {{#if 변수}}…{{/if}} (변수가 비어 있으면 블록 통째로 생략)
+// 문법: {{변수}}, {{#if 변수}}…{{/if}} (변수가 비어 있으면 블록 통째로 생략, 중첩 가능)
 // 새 버전은 파일을 추가(<id>@<n+1>.md)하면 가장 높은 버전이 쓰인다. PROMPT_<ID>=<n> 로 특정 버전 고정 가능.
 
 export interface PromptTemplate {
@@ -55,7 +55,13 @@ export function renderPrompt(tpl: PromptTemplate, vars: PromptVars): string {
     const v = vars[k]
     return v !== undefined && v !== null && String(v).trim() !== ''
   }
-  let out = tpl.body.replace(/\{\{#if (\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_, k: string, inner: string) => (has(k) ? inner : ''))
+  // 안쪽 블록부터 풀어서 {{#if}} 중첩을 지원한다
+  let out = tpl.body
+  const innermost = /\{\{#if (\w+)\}\}((?:(?!\{\{#if )[\s\S])*?)\{\{\/if\}\}/g
+  for (let prev = ''; prev !== out; ) {
+    prev = out
+    out = out.replace(innermost, (_, k: string, inner: string) => (has(k) ? inner : ''))
+  }
   out = out.replace(/\{\{(\w+)\}\}/g, (_, k: string) => {
     if (!(k in vars)) throw new Error(`프롬프트 ${tpl.ref}: 변수 {{${k}}} 값이 없어요`)
     return String(vars[k] ?? '')

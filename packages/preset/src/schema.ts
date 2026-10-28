@@ -57,6 +57,10 @@ export const TextStyle = z.object({
   background: Hex.nullable().default(null),
   position: z.enum(['top', 'center', 'lower-third', 'bottom']).default('lower-third'),
   animation: z.enum(['none', 'fade', 'pop', 'typewriter']).default('fade'),
+  /** 글자 뒤 부드러운 그림자 (사진 위 흰 글자를 박스 없이 읽히게) */
+  shadow: z.boolean().default(false),
+  /** background 를 반투명 띠로 (1 = 불투명 박스) */
+  backgroundOpacity: z.number().min(0).max(1).default(1),
 })
 
 export const Palette = z.object({ primary: Hex, accent: Hex, background: Hex, text: Hex })
@@ -83,6 +87,15 @@ export const MoodPreset = z.object({
     transitionSec: z.number().min(0).max(1),
     motion: z.enum(['static', 'slow-push', 'punch']),
     captions: z.object({ main: TextStyle, emphasis: TextStyle, label: TextStyle }),
+    // 비포·애프터·과정 장면 모서리에 붙는 이름표 (예: 세리프 이탤릭 "Before" / "After")
+    labelText: z
+      .object({ before: z.string(), after: z.string(), process: z.string() })
+      .default({ before: 'Before', after: 'After', process: 'Process' }),
+    // 화면 아래 작은 샵 이름 워터마크 (레퍼런스 계정들의 공통 요소)
+    watermark: z.boolean().default(true),
+    /** 비교 화면 사이 줄·콜라주 틈 색 */
+    dividerColor: Hex.default('#ffffff'),
+    watermarkColor: Hex.default('#ffffff'),
     music: z.object({
       genres: z.array(z.string()).min(1),
       bpm: Range,
@@ -102,12 +115,15 @@ export const MEDIA_ROLES = ['before', 'after', 'process', 'detail', 'shop', 'own
 export const MediaRole = z.enum(MEDIA_ROLES)
 
 export const Slot = z.object({
-  role: z.enum(['hook', 'before', 'process', 'after', 'detail', 'shop', 'owner', 'review', 'info', 'cta']),
+  role: z.enum(['hook', 'before', 'process', 'after', 'compare', 'detail', 'shop', 'owner', 'review', 'info', 'cta']),
   durationSec: Range,
-  source: z.enum(['media', 'card']), // card = 브랜드 배경 위 문구 (CTA 등)
+  // card = 브랜드 배경 위 문구 (CTA 등), compare = 비포(위)·애프터(아래) 한 화면 비교
+  source: z.enum(['media', 'card', 'compare']),
   mediaRole: MediaRole.optional(),
   optional: z.boolean().default(false),
   caption: z.object({ intent: z.string(), maxChars: z.number().int().positive() }).optional(),
+  /** 이 장면 아래에 샵 이름·예약 안내 띠를 얹는다 (영상 끝을 카드 대신 실제 결과 화면으로) */
+  brand: z.boolean().default(false),
 })
 
 export const COPY_SECTIONS = ['hook', 'empathy', 'point', 'trust', 'cta', 'info', 'care-tip'] as const
@@ -211,6 +227,10 @@ export const MoodOverrides = z.object({
       captions: z
         .object({ main: TextStyle.partial().optional(), emphasis: TextStyle.partial().optional(), label: TextStyle.partial().optional() })
         .optional(),
+      labelText: z.object({ before: z.string(), after: z.string(), process: z.string() }).partial().optional(),
+      watermark: z.boolean().optional(),
+      dividerColor: Hex.optional(),
+      watermarkColor: Hex.optional(),
       music: MoodPreset.shape.video.shape.music.partial().optional(),
     })
     .optional(),

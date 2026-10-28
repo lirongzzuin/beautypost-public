@@ -1,0 +1,13 @@
+{
+  "$schema": "../_schema/fonts.schema.json",
+  "id": "cormorant-italic",
+  "family": "Cormorant Garamond",
+  "license": "OFL-1.1",
+  "source": "https://github.com/google/fonts/tree/main/ofl/cormorantgaramond",
+  "styles": ["Regular", "Medium", "Bold"],
+  "files": {
+    "Regular": "CormorantGaramond-Italic.ttf",
+    "Medium": "CormorantGaramond-Italic.ttf",
+    "Bold": "CormorantGaramond-Italic.ttf"
+  }
+}

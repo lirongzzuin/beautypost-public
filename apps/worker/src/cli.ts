@@ -18,12 +18,16 @@ const spec = JSON.parse(readFileSync(specPath, 'utf8')) as { media?: { url: stri
 for (const m of spec.media ?? []) if (m.url.startsWith('/') && !m.url.startsWith('/api/')) m.url = pathToFileURL(m.url).href
 
 const filmcraftDir = resolve(process.env.FILMCRAFT_DIR ?? '../../../filmcraft')
-const installed = ensureFonts(resolve(process.env.FONTS_DIR ?? '../../presets/fonts/files'))
-if (installed.length) console.log(`폰트 설치: ${installed.join(', ')}`)
+const engine = process.env.RENDER_ENGINE === 'filmcraft' ? 'filmcraft' : 'native'
+if (engine === 'filmcraft') {
+  const installed = ensureFonts(resolve(process.env.FONTS_DIR ?? '../../presets/fonts/files'))
+  if (installed.length) console.log(`폰트 설치: ${installed.join(', ')}`)
+}
 const t0 = Date.now()
 const r = await renderJob(spec, jobId, {
   workDir: resolve(process.env.WORK_DIR ?? '.data/renders'),
   filmcraftDir,
+  engine,
   apiUrl: process.env.RENDER_API_URL,
   allowFileUrls: true,
   stage: (s, p) => console.log(`  [${String(p).padStart(3)}%] ${s}`),

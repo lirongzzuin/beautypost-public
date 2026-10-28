@@ -1,16 +1,82 @@
 {
   "$schema": "../_schema/purposes.schema.json",
-  "id": "care-tip", "version": 1, "label": "관리 팁", "order": 60,
+  "id": "care-tip",
+  "version": 2,
+  "label": "관리 팁",
+  "order": 60,
   "description": "시술 후 홈케어·주의사항. 저장하고 싶은 정보형. 의학적 단정 금지",
-  "legacyThemes": ["care_guide"],
-  "requiredMedia": [{ "role": "any", "min": 0, "max": 5 }],
-  "copyStructure": ["hook", "care-tip", "trust", "cta"],
-  "video": { "slots": [
-    { "role": "hook", "durationSec": [1.5, 2.5], "source": "card", "caption": { "intent": "궁금증 한 줄", "maxChars": 14 } },
-    { "role": "detail", "durationSec": [2.0, 8.0], "source": "media", "mediaRole": "any", "optional": true, "caption": { "intent": "관리 장면", "maxChars": 16 } },
-    { "role": "info", "durationSec": [3.0, 6.0], "source": "card", "caption": { "intent": "핵심 팁 1~3개", "maxChars": 30 } },
-    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "저장·문의 유도", "maxChars": 20 } }
-  ] },
-  "photo": { "layout": "carousel" },
+  "legacyThemes": [
+    "care_guide"
+  ],
+  "requiredMedia": [
+    {
+      "role": "any",
+      "min": 0,
+      "max": 5
+    }
+  ],
+  "copyStructure": [
+    "hook",
+    "care-tip",
+    "trust",
+    "cta"
+  ],
+  "video": {
+    "slots": [
+      {
+        "role": "hook",
+        "durationSec": [
+          1.2,
+          1.8
+        ],
+        "source": "card",
+        "caption": {
+          "intent": "궁금증 한 줄",
+          "maxChars": 12
+        }
+      },
+      {
+        "role": "detail",
+        "durationSec": [
+          2.0,
+          8.0
+        ],
+        "source": "media",
+        "mediaRole": "any",
+        "optional": true,
+        "caption": {
+          "intent": "관리 장면",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "info",
+        "durationSec": [
+          3.0,
+          6.0
+        ],
+        "source": "card",
+        "caption": {
+          "intent": "핵심 팁 1~3개",
+          "maxChars": 30
+        }
+      },
+      {
+        "role": "cta",
+        "durationSec": [
+          1.6,
+          2.2
+        ],
+        "source": "card",
+        "caption": {
+          "intent": "저장·문의 유도",
+          "maxChars": 20
+        }
+      }
+    ]
+  },
+  "photo": {
+    "layout": "carousel"
+  },
   "sameGradeAcrossRoles": []
 }

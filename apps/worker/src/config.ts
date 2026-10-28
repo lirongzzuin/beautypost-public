@@ -18,6 +18,8 @@ export interface WorkerConfig {
   leaseSec: number
   /** 작업 폴더를 남길지 (디버깅) */
   keepWork: boolean
+  /** 렌더 엔진: native(기본, ffmpeg 직접 합성) | filmcraft(예전 방식) */
+  engine: 'native' | 'filmcraft'
 }
 
 export function loadConfig(env = process.env): WorkerConfig {
@@ -33,8 +35,9 @@ export function loadConfig(env = process.env): WorkerConfig {
     filmcraftDir: resolve(env.FILMCRAFT_DIR ?? '../../../filmcraft'),
     workDir: resolve(env.WORK_DIR ?? '.data/renders'),
     fontsDir: resolve(env.FONTS_DIR ?? '../../presets/fonts/files'),
-    pollMs: Number(env.POLL_INTERVAL_MS ?? 5000),
+    pollMs: Number(env.POLL_INTERVAL_MS ?? 3000),
     leaseSec: Number(env.LEASE_SEC ?? 180),
     keepWork: env.KEEP_WORK === '1',
+    engine: env.RENDER_ENGINE === 'filmcraft' ? 'filmcraft' : 'native',
   }
 }

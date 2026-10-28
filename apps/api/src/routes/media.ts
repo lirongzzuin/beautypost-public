@@ -36,8 +36,17 @@ media.patch('/:id', async (c) => {
     if (row!.consent === 'not_needed' && row!.type === 'image') set.consent = 'unknown'
   }
   if (body.data.consent) {
-    if (!consentAllowed(row!, body.data.consent)) {
-      throw new ApiError(400, 'CONSENT_INVALID', row!.type === 'video' ? '영상 속 얼굴 가림은 아직 지원하지 않아요. 고객 동의를 받았거나 얼굴이 안 나오는 영상만 쓸 수 있어요.' : '얼굴이 보이는 사진이에요. 게시 동의를 받았는지, 얼굴을 가릴지 골라 주세요.')
+    const allowFaceBlur = body.data.consent === 'blurred' ? (await loadShop(db, userId)).settings.allowFaceBlur : false
+    if (!consentAllowed(row!, body.data.consent, { allowFaceBlur })) {
+      throw new ApiError(
+        400,
+        'CONSENT_INVALID',
+        row!.type === 'video'
+          ? '영상 속 얼굴 가림은 지원하지 않아요. 고객 동의를 받았거나 얼굴이 안 나오는 영상만 쓸 수 있어요.'
+          : body.data.consent === 'blurred'
+            ? '얼굴 가림은 브랜드 설정에서 켠 경우에만 쓸 수 있어요.'
+            : '얼굴이 보이는 사진이에요. 게시 동의를 받았는지 확인해 주세요.',
+      )
     }
     set.consent = body.data.consent
     set.consentAt = body.data.consent === 'unknown' ? null : new Date()

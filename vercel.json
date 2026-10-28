@@ -1,7 +1,7 @@
 {
   "buildCommand": "pnpm --filter @beautypost/shared --filter @beautypost/preset --filter @beautypost/ai --filter @beautypost/caption --filter @beautypost/photocraft --filter @beautypost/render build && pnpm --filter @beautypost/web build",
   "outputDirectory": "apps/web/dist",
-  "installCommand": "pnpm install",
+  "installCommand": "pnpm install --ignore-scripts",
   "rewrites": [
     {
       "source": "/api/(.*)",

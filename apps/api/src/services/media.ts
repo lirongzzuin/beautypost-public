@@ -46,6 +46,11 @@ async function analysisImage(row: MediaRow): Promise<Buffer | null> {
   return decodable(() => sharp(raw).rotate().resize(1024, 1024, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer())
 }
 
+/** 여러 장을 동시에 분석 (이미 분석된 것은 바로) */
+export async function ensureAnalyses(db: Db, ai: AiClient, rows: MediaRow[], industryLabel: string): Promise<void> {
+  await Promise.all(rows.map((r) => ensureAnalysis(db, ai, r, industryLabel)))
+}
+
 /** 비전 분석 (사진당 1회, 결과는 media.analysis 에 캐시). 얼굴이 없으면 동의 단계는 필요 없음 */
 export async function ensureAnalysis(db: Db, ai: AiClient, row: MediaRow, industryLabel: string): Promise<MediaAnalysis | null> {
   if (row.analysis) return row.analysis as unknown as MediaAnalysis
@@ -81,10 +86,13 @@ export function consentOk(row: MediaRow): boolean {
   return row.consent === 'granted' || row.consent === 'blurred'
 }
 
-/** 원장님이 고를 수 있는 동의 값인지 (얼굴이 보이는 사진에 '얼굴 없음'은 안 됨, 영상 가림은 아직 없음) */
-export function consentAllowed(row: MediaRow, consent: string): boolean {
+/**
+ * 원장님이 고를 수 있는 동의 값인지 (얼굴이 보이는 사진에 '얼굴 없음'은 안 됨, 영상 가림은 아직 없음).
+ * 얼굴 가림은 브랜드 설정에서 켠 경우만 (기본 끔 — 얼굴 전체를 흐리면 눈썹·속눈썹 같은 시술 부위까지 가려진다)
+ */
+export function consentAllowed(row: MediaRow, consent: string, opts: { allowFaceBlur?: boolean } = {}): boolean {
   if (consent === 'not_needed') return row.type === 'video' || !hasFaces(row)
-  if (consent === 'blurred') return row.type === 'image'
+  if (consent === 'blurred') return row.type === 'image' && !!opts.allowFaceBlur
   return true
 }
 
@@ -92,7 +100,7 @@ export function consentAllowed(row: MediaRow, consent: string): boolean {
 export function assertConsent(rows: MediaRow[]): void {
   const need = rows.filter((r) => !consentOk(r))
   if (need.length) {
-    throw new ApiError(409, 'CONSENT_REQUIRED', '고객 얼굴이 나오는지 확인이 필요한 사진·영상이 있어요. 게시 동의를 확인하거나 얼굴을 가려 주세요.', {
+    throw new ApiError(409, 'CONSENT_REQUIRED', '고객 얼굴이 나오는 사진·영상이 있어요. 게시 동의를 받았는지 확인해 주세요.', {
       mediaIds: need.map((r) => r.id),
     })
   }

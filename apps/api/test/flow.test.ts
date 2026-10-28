@@ -102,15 +102,35 @@ describe('직접 업로드 (큰 영상용)', () => {
 })
 
 describe('게시글 초안', () => {
-  it('사진 분석 → 인스타 3·블로그 2, 고른 글 저장', async () => {
+  it('사진 분석 → 인스타 3 (블로그는 따로, 한 번 만들면 저장), 샵 설정 반영, 고른 글 저장', async () => {
+    const saved = await call('PUT', '/brand', { settings: { signature: '예약은 카카오채널 #뷰티룸', hashtagCount: 4, brandHashtags: ['뷰티룸', '#뷰티룸'], instagramHandle: 'https://instagram.com/beauty_room/' } })
+    expect(saved.status).toBe(200)
+    const brand = await call('GET', '/brand')
+    expect(brand.json.data.settings).toMatchObject({ hashtagCount: 4, brandHashtags: ['#뷰티룸'], instagramHandle: '@beauty_room', allowFaceBlur: false })
     const before = await uploadPhoto('#b08070', 'before')
     const after = await uploadPhoto('#e0b8a0', 'after')
     const r = await call('POST', '/create/drafts', { mediaIds: [before, after], purpose: 'before-after', industry: 'eyebrow' })
     expect(r.status).toBe(200)
     expect(r.json.data.instagram).toHaveLength(3)
-    expect(r.json.data.blog).toHaveLength(2)
+    expect(r.json.data.blog).toHaveLength(0)
     expect(r.json.data.keyword).toBe('역삼 눈썹문신')
-    expect(r.json.data.instagram[0].text).toContain('#역삼눈썹문신')
+    const ig = r.json.data.instagram[0]
+    expect(ig.text).toContain('#역삼눈썹문신')
+    expect(ig.hashtags).toHaveLength(4)
+    expect(ig.hashtags).toContain('#뷰티룸')
+    expect(ig.text).toContain('예약은 카카오채널 #뷰티룸\n\n#역삼눈썹문신')
+    const blog = await call('POST', `/create/drafts/${r.json.data.id}/blog`)
+    expect(blog.status).toBe(200)
+    expect(blog.json.data.blog).toHaveLength(2)
+    expect(blog.json.data.blog[0].text).toMatch(/\[사진 1\]/)
+    const again = await call('POST', `/create/drafts/${r.json.data.id}/blog`)
+    expect(again.json.data.blog[0].text).toBe(blog.json.data.blog[0].text) // 다시 만들지 않음
+    // 일부만 보내면 나머지 설정은 그대로
+    await call('PUT', '/brand', { settings: { hashtagCount: 3 } })
+    expect((await call('GET', '/brand')).json.data.settings).toMatchObject({ hashtagCount: 3, signature: '예약은 카카오채널 #뷰티룸', instagramHandle: '@beauty_room' })
+    const long = await call('PUT', '/brand', { settings: { brandHashtags: ['가'.repeat(45)] } })
+    expect(long.status).toBe(400)
+    await call('PUT', '/brand', { settings: { signature: '', hashtagCount: 5, brandHashtags: [], instagramHandle: '' } })
     const fb = await call('POST', `/create/drafts/${r.json.data.id}/feedback`, { channel: 'instagram', index: 1, text: '직접 고친 글이에요\n\n#태그' })
     expect(fb.status).toBe(200)
     const media = await call('POST', `/media/${before}/analyze`)
@@ -145,14 +165,26 @@ describe('사진 보정', () => {
     faceMode = false
   })
 
-  it('얼굴이 보이면 동의 전에는 막고, 얼굴 가림을 고르면 진행', async () => {
+  it('얼굴이 보이면 동의 전에는 막는다. 얼굴 가림은 기본 꺼짐 → 설정에서 켜면 진행', async () => {
     faceMode = true
     const id = await uploadPhoto('#c09080', 'after').finally(() => undefined)
     const r1 = await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })
     expect(r1.status).toBe(409)
     expect(r1.json.code).toBe('CONSENT_REQUIRED')
     expect((await call('PATCH', `/media/${id}`, { consent: 'not_needed' })).status).toBe(400) // 얼굴이 보이는데 '얼굴 없음' 불가
+    const off = await call('PATCH', `/media/${id}`, { consent: 'blurred' })
+    expect(off.status).toBe(400) // 설정에서 켜지 않음
+    expect(off.json.message_ko).toContain('브랜드 설정')
+    await call('PUT', '/brand', { settings: { allowFaceBlur: true } })
     expect((await call('PATCH', `/media/${id}`, { consent: 'blurred' })).status).toBe(200)
+    expect((await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })).status).toBe(200)
+    await call('PUT', '/brand', { settings: { allowFaceBlur: false } })
+  })
+
+  it('게시 동의를 받으면 가림 설정 없이도 진행', async () => {
+    faceMode = true
+    const id = await uploadPhoto('#c09081', 'after')
+    expect((await call('PATCH', `/media/${id}`, { consent: 'granted' })).status).toBe(200)
     expect((await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })).status).toBe(200)
   })
 })

@@ -148,8 +148,9 @@ describe('resolvePreset', () => {
   })
 
   it('영상 길이는 무드 선호와 포맷 범위의 교집합', () => {
-    expect(resolvePreset(reg, { ...base, mood: 'clean-white', format: 'story' }).videoDurationSec).toEqual([15, 15])
-    expect(resolvePreset(reg, { ...base, mood: 'trendy-fast', format: 'reel' }).videoDurationSec).toEqual([15, 18])
+    expect(resolvePreset(reg, { ...base, mood: 'clean-white', format: 'story' }).videoDurationSec).toEqual([9, 13])
+    expect(resolvePreset(reg, { ...base, mood: 'warm-natural', format: 'story' }).videoDurationSec).toEqual([10, 14])
+    expect(resolvePreset(reg, { ...base, mood: 'trendy-fast', format: 'reel' }).videoDurationSec).toEqual([7, 10])
   })
 
   it('없는 프리셋 id 는 명확한 오류', () => {

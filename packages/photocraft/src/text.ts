@@ -60,6 +60,10 @@ export function toRuns(font: opentype.Font, text: string, weight: TextStyle['wei
   return runs
 }
 
+function runsWidthOf(r: Run, size: number): number {
+  return r.font.getAdvanceWidth(r.text, size)
+}
+
 function runsWidth(runs: Run[], size: number): number {
   return runs.reduce((t, r) => t + r.font.getAdvanceWidth(r.text, size), 0)
 }
@@ -105,12 +109,12 @@ function escapeAttr(s: string): string {
 }
 
 /**
- * 글자 블록을 SVG 로 만든다 (투명 배경). 외곽선은 SVG stroke (글자 뒤에 깔림).
+ * 글자 블록을 SVG 로 만든다 (투명 배경). 외곽선은 SVG stroke (글자 뒤에 깔림), shadow 는 부드러운 그림자.
  * width 는 실제 줄 폭에 맞춘 값이라, 호출하는 쪽이 원하는 위치에 배치한다.
  */
 export function textBlock(
   text: string,
-  style: Pick<TextStyle, 'font' | 'weight' | 'color' | 'stroke'>,
+  style: Pick<TextStyle, 'font' | 'weight' | 'color' | 'stroke'> & { shadow?: boolean; letterSpacing?: number },
   size: number,
   maxWidth: number,
   align: 'left' | 'center' | 'right' = 'center',
@@ -120,22 +124,46 @@ export function textBlock(
   const lineRuns = lines.map((l) => toRuns(font, l, style.weight))
   const lineHeight = size * 1.3
   const stroke = style.stroke ? Math.max(2, Math.round(size * 0.1)) : 0
-  const pad = stroke + 2
-  const widths = lineRuns.map((r) => runsWidth(r, size))
-  const W = Math.ceil(Math.max(1, ...widths) + pad * 2)
+  const blur = style.shadow ? Math.max(2, size * 0.09) : 0
+  const pad = stroke + 2 + Math.ceil(blur * 3)
+  const spacing = (style.letterSpacing ?? 0) * size
+  const spaced = (r: Run) => runsWidthOf(r, size) + spacing * [...r.text].length
+  const widths = lineRuns.map((rs) => rs.reduce((t, r) => t + spaced(r), 0) - (spacing && rs.length ? spacing : 0))
+  // 이탤릭·장식 글자는 글자 폭(advance) 밖으로 삐져나온다 → 실제 윤곽 크기만큼 좌우 여백을 더한다 (잘림 방지)
+  let over = 0
+  lineRuns.forEach((runs, i) => {
+    let x = 0
+    for (const r of runs) {
+      const bb = r.font.getPath(r.text, x, 0, size).getBoundingBox()
+      over = Math.max(over, -bb.x1, bb.x2 - widths[i]!)
+      x += spaced(r)
+    }
+  })
+  const padX = pad + Math.ceil(Math.max(0, over))
+  const W = Math.ceil(Math.max(1, ...widths) + padX * 2)
   const H = Math.ceil(lines.length * lineHeight + pad * 2)
   const ascent = (font.ascender / font.unitsPerEm) * size
   const descent = (-font.descender / font.unitsPerEm) * size
   const baselineOffset = (lineHeight - (ascent + descent)) / 2 + ascent
   const paths = lineRuns
     .map((runs, i) => {
-      let x = align === 'left' ? pad : align === 'right' ? W - pad - widths[i]! : (W - widths[i]!) / 2
+      let x = align === 'left' ? padX : align === 'right' ? W - padX - widths[i]! : (W - widths[i]!) / 2
       const y = pad + i * lineHeight + baselineOffset
       return runs
         .map((r) => {
-          const d = r.font.getPath(r.text, x, y, size).toPathData(2)
-          x += r.font.getAdvanceWidth(r.text, size)
-          return d
+          if (!spacing) {
+            const d = r.font.getPath(r.text, x, y, size).toPathData(2)
+            x += r.font.getAdvanceWidth(r.text, size)
+            return d
+          }
+          // 자간: 글자마다 따로 그린다 (워터마크 "U G L Y" 같은 넓은 자간)
+          return [...r.text]
+            .map((ch) => {
+              const d = r.font.getPath(ch, x, y, size).toPathData(2)
+              x += r.font.getAdvanceWidth(ch, size) + spacing
+              return d
+            })
+            .join(' ')
         })
         .join(' ')
     })
@@ -144,7 +172,10 @@ export function textBlock(
   const strokeAttr = stroke
     ? ` stroke="${escapeAttr(style.stroke!)}" stroke-width="${stroke * 2}" stroke-linejoin="round" paint-order="stroke"`
     : ''
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><path d="${paths}" fill="${escapeAttr(style.color)}"${strokeAttr}/></svg>`
+  const shadow = blur
+    ? `<defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="${blur.toFixed(1)}"/><feOffset dy="${(blur * 0.6).toFixed(1)}" result="b"/><feComponentTransfer in="b" result="o"><feFuncA type="linear" slope="0.55"/></feComponentTransfer><feMerge><feMergeNode in="o"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`
+    : ''
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${shadow}<path d="${paths}" fill="${escapeAttr(style.color)}"${strokeAttr}${blur ? ' filter="url(#s)"' : ''}/></svg>`
   return { svg, width: W, height: H }
 }
 

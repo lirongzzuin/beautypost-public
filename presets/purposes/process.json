@@ -1,16 +1,90 @@
 {
   "$schema": "../_schema/purposes.schema.json",
-  "id": "process", "version": 1, "label": "시술 과정", "order": 20,
+  "id": "process",
+  "version": 2,
+  "label": "시술 과정",
+  "order": 20,
   "description": "꼼꼼한 과정이 신뢰 요소. 디자인·위생·디테일을 순서대로 보여주고 결과로 마무리",
   "legacyThemes": [],
-  "requiredMedia": [{ "role": "process", "min": 1, "max": 8 }, { "role": "after", "min": 0, "max": 2 }],
-  "copyStructure": ["hook", "point", "trust", "cta"],
-  "video": { "slots": [
-    { "role": "hook", "durationSec": [1.0, 2.0], "source": "media", "mediaRole": "process", "caption": { "intent": "과정이 궁금해지는 한 줄", "maxChars": 14 } },
-    { "role": "process", "durationSec": [4.0, 16.0], "source": "media", "mediaRole": "process", "caption": { "intent": "단계별 포인트(디자인·위생·디테일)", "maxChars": 16 } },
-    { "role": "after", "durationSec": [2.0, 4.0], "source": "media", "mediaRole": "after", "optional": true, "caption": { "intent": "완성 모습", "maxChars": 14 } },
-    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "예약 유도 + 샵 이름", "maxChars": 20 } }
-  ] },
-  "photo": { "layout": "carousel" },
-  "sameGradeAcrossRoles": ["process", "after"]
+  "requiredMedia": [
+    {
+      "role": "process",
+      "min": 1,
+      "max": 8
+    },
+    {
+      "role": "after",
+      "min": 0,
+      "max": 2
+    }
+  ],
+  "copyStructure": [
+    "hook",
+    "point",
+    "trust",
+    "cta"
+  ],
+  "video": {
+    "slots": [
+      {
+        "role": "hook",
+        "durationSec": [
+          1.2,
+          1.8
+        ],
+        "source": "media",
+        "mediaRole": "process",
+        "caption": {
+          "intent": "과정이 궁금해지는 한 줄",
+          "maxChars": 12
+        }
+      },
+      {
+        "role": "process",
+        "durationSec": [
+          4.0,
+          8.0
+        ],
+        "source": "media",
+        "mediaRole": "process",
+        "caption": {
+          "intent": "단계별 포인트(디자인·위생·디테일)",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "after",
+        "durationSec": [
+          2.0,
+          4.0
+        ],
+        "source": "media",
+        "mediaRole": "after",
+        "optional": true,
+        "caption": {
+          "intent": "완성 모습",
+          "maxChars": 14
+        }
+      },
+      {
+        "role": "cta",
+        "durationSec": [
+          1.6,
+          2.2
+        ],
+        "source": "card",
+        "caption": {
+          "intent": "예약 유도 + 샵 이름",
+          "maxChars": 20
+        }
+      }
+    ]
+  },
+  "photo": {
+    "layout": "carousel"
+  },
+  "sameGradeAcrossRoles": [
+    "process",
+    "after"
+  ]
 }

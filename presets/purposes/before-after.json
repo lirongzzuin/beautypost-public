@@ -1,17 +1,112 @@
 {
   "$schema": "../_schema/purposes.schema.json",
-  "id": "before-after", "version": 1, "label": "비포·애프터", "order": 10,
-  "description": "시술 전후 변화가 주인공. 결과로 후킹 → 고민 → (과정) → 결과 → 예약",
-  "legacyThemes": ["before_after"],
-  "requiredMedia": [{ "role": "before", "min": 1, "max": 3 }, { "role": "after", "min": 1, "max": 3 }, { "role": "process", "min": 0, "max": 4 }],
-  "copyStructure": ["hook", "empathy", "point", "trust", "cta"],
-  "video": { "slots": [
-    { "role": "hook", "durationSec": [1.0, 1.5], "source": "media", "mediaRole": "after", "caption": { "intent": "결과를 보여주며 한 줄 후킹", "maxChars": 14 } },
-    { "role": "before", "durationSec": [1.5, 3.0], "source": "media", "mediaRole": "before", "caption": { "intent": "시술 전 고객의 고민", "maxChars": 16 } },
-    { "role": "process", "durationSec": [2.0, 8.0], "source": "media", "mediaRole": "process", "optional": true, "caption": { "intent": "시술 포인트", "maxChars": 16 } },
-    { "role": "after", "durationSec": [2.5, 5.0], "source": "media", "mediaRole": "after", "caption": { "intent": "보이는 변화(사실만)", "maxChars": 16 } },
-    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "예약 유도 + 샵 이름", "maxChars": 20 } }
-  ] },
-  "photo": { "layout": "before-after-split" },
-  "sameGradeAcrossRoles": ["before", "after"]
+  "id": "before-after",
+  "version": 2,
+  "label": "비포·애프터",
+  "order": 10,
+  "description": "시술 전후 변화가 주인공. 결과로 후킹 → 비포 → (과정) → 애프터 → 위아래 비교 + 샵 이름",
+  "legacyThemes": [
+    "before_after"
+  ],
+  "requiredMedia": [
+    {
+      "role": "before",
+      "min": 1,
+      "max": 3
+    },
+    {
+      "role": "after",
+      "min": 1,
+      "max": 3
+    },
+    {
+      "role": "process",
+      "min": 0,
+      "max": 4
+    }
+  ],
+  "copyStructure": [
+    "hook",
+    "empathy",
+    "point",
+    "trust",
+    "cta"
+  ],
+  "video": {
+    "slots": [
+      {
+        "role": "hook",
+        "durationSec": [
+          1.2,
+          1.6
+        ],
+        "source": "media",
+        "mediaRole": "after",
+        "caption": {
+          "intent": "결과 화면 위 궁금증을 만드는 짧은 한마디 (예: 반전 있어요 / 이게 문신이라고요?)",
+          "maxChars": 12
+        }
+      },
+      {
+        "role": "before",
+        "durationSec": [
+          1.2,
+          2.0
+        ],
+        "source": "media",
+        "mediaRole": "before",
+        "caption": {
+          "intent": "시술 전 상태나 고객 고민 (사진에 보이는 것만)",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "process",
+        "durationSec": [
+          1.5,
+          4.0
+        ],
+        "source": "media",
+        "mediaRole": "process",
+        "optional": true,
+        "caption": {
+          "intent": "이번 시술의 판단·기법 한 줄",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "after",
+        "durationSec": [
+          1.4,
+          2.4
+        ],
+        "source": "media",
+        "mediaRole": "after",
+        "caption": {
+          "intent": "보이는 변화 한 줄 (사실만)",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "compare",
+        "durationSec": [
+          2.4,
+          3.2
+        ],
+        "source": "compare",
+        "brand": true,
+        "caption": {
+          "intent": "예약·문의로 이어지는 마무리 한 줄",
+          "maxChars": 18
+        }
+      }
+    ]
+  },
+  "photo": {
+    "layout": "before-after-split"
+  },
+  "sameGradeAcrossRoles": [
+    "before",
+    "after"
+  ]
 }

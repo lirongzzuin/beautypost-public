@@ -51,6 +51,7 @@ async function runOne(job: ClaimedJob): Promise<void> {
     const r = await renderJob(job.payload, job.id, {
       workDir: cfg.workDir,
       filmcraftDir: cfg.filmcraftDir,
+      engine: cfg.engine,
       apiUrl: cfg.apiUrl,
       signal: abort.signal,
       stage: (s, p) => {
@@ -66,6 +67,7 @@ async function runOne(job: ClaimedJob): Promise<void> {
     await api.heartbeat(job, progress, stage)
     const video = await api.upload(job, 'video.mp4', r.video, 'video/mp4')
     const cover = await api.upload(job, r.cover.endsWith('.png') ? 'cover.png' : 'cover.jpg', r.cover, r.cover.endsWith('.png') ? 'image/png' : 'image/jpeg')
+    clearInterval(beat) // 완료 뒤에 하트비트가 가면 '임대 끝남'으로 실패한다
     await api.complete(job, { video, cover, width: r.width, height: r.height, duration: r.duration, qa: r.qa, warnings: r.warnings })
     log(`✓ ${job.id} 완료 (${r.duration}s)`)
     if (!cfg.keepWork) rmSync(join(cfg.workDir, job.id), { recursive: true, force: true })
@@ -85,9 +87,12 @@ async function runOne(job: ClaimedJob): Promise<void> {
 }
 
 async function main() {
-  const installed = ensureFonts(cfg.fontsDir)
-  if (installed.length) log(`폰트 설치: ${installed.join(', ')}`)
-  log(`작업자 ${cfg.workerId} 시작 → ${cfg.apiUrl} (filmcraft: ${cfg.filmcraftDir})`)
+  // FilmCraft 는 시스템에 설치된 폰트를 쓴다 (기본 엔진은 presets/fonts 파일을 직접 읽어 설치가 필요 없다)
+  if (cfg.engine === 'filmcraft') {
+    const installed = ensureFonts(cfg.fontsDir)
+    if (installed.length) log(`폰트 설치: ${installed.join(', ')}`)
+  }
+  log(`작업자 ${cfg.workerId} 시작 → ${cfg.apiUrl} (엔진: ${cfg.engine}${cfg.engine === 'filmcraft' ? ` ${cfg.filmcraftDir}` : ''})`)
   while (!stopping) {
     try {
       const job = await api.claim()

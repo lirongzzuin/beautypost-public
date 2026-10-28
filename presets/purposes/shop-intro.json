@@ -1,16 +1,90 @@
 {
   "$schema": "../_schema/purposes.schema.json",
-  "id": "shop-intro", "version": 1, "label": "원장님·샵 소개", "order": 30,
+  "id": "shop-intro",
+  "version": 2,
+  "label": "원장님·샵 소개",
+  "order": 30,
   "description": "공간·원장님·철학. 믿고 맡길 이유(경력·위생·1:1)를 담담하게",
-  "legacyThemes": ["shop_intro"],
-  "requiredMedia": [{ "role": "shop", "min": 1, "max": 6 }, { "role": "owner", "min": 0, "max": 3 }],
-  "copyStructure": ["hook", "empathy", "trust", "info", "cta"],
-  "video": { "slots": [
-    { "role": "hook", "durationSec": [1.5, 2.5], "source": "media", "mediaRole": "shop", "caption": { "intent": "공간의 첫인상", "maxChars": 14 } },
-    { "role": "owner", "durationSec": [2.0, 4.0], "source": "media", "mediaRole": "owner", "optional": true, "caption": { "intent": "원장님 한마디", "maxChars": 16 } },
-    { "role": "shop", "durationSec": [3.0, 9.0], "source": "media", "mediaRole": "shop", "caption": { "intent": "위생·분위기·1:1 등 신뢰 요소", "maxChars": 16 } },
-    { "role": "cta", "durationSec": [2.0, 3.0], "source": "card", "caption": { "intent": "위치·예약 안내", "maxChars": 20 } }
-  ] },
-  "photo": { "layout": "carousel" },
+  "legacyThemes": [
+    "shop_intro"
+  ],
+  "requiredMedia": [
+    {
+      "role": "shop",
+      "min": 1,
+      "max": 6
+    },
+    {
+      "role": "owner",
+      "min": 0,
+      "max": 3
+    }
+  ],
+  "copyStructure": [
+    "hook",
+    "empathy",
+    "trust",
+    "info",
+    "cta"
+  ],
+  "video": {
+    "slots": [
+      {
+        "role": "hook",
+        "durationSec": [
+          1.2,
+          1.8
+        ],
+        "source": "media",
+        "mediaRole": "shop",
+        "caption": {
+          "intent": "공간의 첫인상",
+          "maxChars": 12
+        }
+      },
+      {
+        "role": "owner",
+        "durationSec": [
+          2.0,
+          4.0
+        ],
+        "source": "media",
+        "mediaRole": "owner",
+        "optional": true,
+        "caption": {
+          "intent": "원장님 한마디",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "shop",
+        "durationSec": [
+          3.0,
+          8.0
+        ],
+        "source": "media",
+        "mediaRole": "shop",
+        "caption": {
+          "intent": "위생·분위기·1:1 등 신뢰 요소",
+          "maxChars": 16
+        }
+      },
+      {
+        "role": "cta",
+        "durationSec": [
+          1.6,
+          2.2
+        ],
+        "source": "card",
+        "caption": {
+          "intent": "위치·예약 안내",
+          "maxChars": 20
+        }
+      }
+    ]
+  },
+  "photo": {
+    "layout": "carousel"
+  },
   "sameGradeAcrossRoles": []
 }

@@ -15,7 +15,8 @@
     "@beautypost/render": "workspace:*",
     "@vercel/blob": "^0.27.0",
     "sharp": "^0.34.4",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "@beautypost/reel": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

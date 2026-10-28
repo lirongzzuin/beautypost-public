@@ -1,4 +1,5 @@
 import { useRef, type Dispatch, type SetStateAction } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useToast } from '@beautypost/ui'
 import { contentApi, ROLE_LABELS, type PresetCatalog } from '~/api/content'
 import { ApiRequestError } from '~/api/client'
@@ -18,6 +19,9 @@ let seq = 0
 export default function StepUpload({ purpose, industry, items, setItems }: Props) {
   const toast = useToast()
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
+  // 얼굴 가림은 브랜드 설정에서 켠 경우만 보여 준다 (기본 끔)
+  const brand = useQuery({ queryKey: ['brand'], queryFn: contentApi.brand, staleTime: 60_000 })
+  const allowBlur = brand.data?.settings?.allowFaceBlur ?? false
 
   const update = (localId: string, patch: Partial<Item>) =>
     setItems((list) => list.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
@@ -62,6 +66,7 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
   }
 
   const remove = (localId: string) => setItems((list) => list.filter((i) => i.localId !== localId))
+  const pending = items.filter(needsConsent)
 
   // 목적이 요구하는 역할별 칸 + (요구 역할에 없는 사진이 이미 있으면) 기타 칸
   const roles = purpose.requiredMedia.map((r) => r)
@@ -71,6 +76,11 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
   return (
     <>
       <p className={styles.stepDesc}>칸마다 맞는 사진을 올려 주세요. 사진 내용을 보고 글과 영상을 만들어요.</p>
+      {pending.length > 1 && (
+        <button type="button" className={styles.secondaryBtn} onClick={() => pending.forEach((i) => void setConsent(i, 'granted'))}>
+          얼굴 나온 사진·영상 {pending.length}개 모두 게시 동의 받았어요
+        </button>
+      )}
       {[...roles, ...(others.length ? [{ role: others[0]!.role, min: 0, max: 10 }] : [])].map((r) => {
         const list = items.filter((i) => i.role === r.role)
         return (
@@ -121,13 +131,13 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
                   {i.kind === 'video' ? (
                     <><strong>이 영상에 고객 얼굴이 나오나요?</strong> 나온다면 게시 동의를 받은 영상만 쓸 수 있어요.</>
                   ) : (
-                    <><strong>고객 얼굴이 보여요.</strong> 게시해도 되는지 확인해 주세요.</>
+                    <><strong>고객 얼굴이 보여요.</strong> 게시 동의를 받은 사진만 쓸 수 있어요.</>
                   )}
                 </p>
                 <div className={styles.consentBtns}>
                   {i.kind === 'video' && <button type="button" onClick={() => setConsent(i, 'not_needed')}>얼굴 안 나와요</button>}
                   <button type="button" onClick={() => setConsent(i, 'granted')}>게시 동의 받았어요</button>
-                  {i.kind === 'image' && (
+                  {i.kind === 'image' && allowBlur && (
                     <button type="button" onClick={() => setConsent(i, 'blurred')}>얼굴 가리고 쓸게요</button>
                   )}
                   <button type="button" onClick={() => remove(i.localId)}>이 사진 빼기</button>

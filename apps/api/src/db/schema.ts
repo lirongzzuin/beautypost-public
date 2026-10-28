@@ -97,6 +97,8 @@ export const brandProfiles = pgTable('brand_profiles', {
   brandPreset: jsonb('brand_preset').$type<Record<string, unknown>>(),
   bookingLabel: text('booking_label'),
   bookingUrl: text('booking_url'),
+  // 글·영상 공통 설정: 글 끝 고정 안내 문구, 해시태그 개수·고정 태그, 워터마크(인스타 아이디), 얼굴 가림 허용 (services/settings.ts)
+  contentSettings: jsonb('content_settings').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

@@ -103,6 +103,7 @@
                   "before",
                   "process",
                   "after",
+                  "compare",
                   "detail",
                   "shop",
                   "owner",
@@ -129,7 +130,8 @@
                 "type": "string",
                 "enum": [
                   "media",
-                  "card"
+                  "card",
+                  "compare"
                 ]
               },
               "mediaRole": {
@@ -166,6 +168,10 @@
                   "intent",
                   "maxChars"
                 ]
+              },
+              "brand": {
+                "default": false,
+                "type": "boolean"
               }
             },
             "required": [

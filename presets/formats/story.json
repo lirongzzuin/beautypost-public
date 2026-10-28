@@ -1,5 +1,31 @@
-{ "$schema": "../_schema/formats.schema.json", "id": "story", "label": "스토리 (9:16)", "kind": "both",
-  "width": 1080, "height": 1920, "fps": 30, "durationSec": [5, 15],
-  "safeArea": { "top": 250, "bottom": 340, "side": 80 },
-  "reserved": [{ "name": "link-sticker", "x": 240, "y": 1300, "w": 600, "h": 220 }],
-  "encode": { "videoKbps": 10000, "audioKbps": 128 } }
+{
+  "$schema": "../_schema/formats.schema.json",
+  "id": "story",
+  "label": "스토리 (9:16)",
+  "kind": "both",
+  "width": 1080,
+  "height": 1920,
+  "fps": 30,
+  "durationSec": [
+    5,
+    15
+  ],
+  "safeArea": {
+    "top": 250,
+    "bottom": 340,
+    "side": 80
+  },
+  "reserved": [
+    {
+      "name": "link-sticker",
+      "x": 240,
+      "y": 1300,
+      "w": 600,
+      "h": 220
+    }
+  ],
+  "encode": {
+    "videoKbps": 10000,
+    "audioKbps": 128
+  }
+}

@@ -199,17 +199,18 @@ export async function beforeAfter(spec: CollageSpec): Promise<PhotoResult> {
     { input: a, left: vertical ? 0 : cw + gap, top: vertical ? ch + gap : 0 },
   ]
   if (spec.labels) {
-    const size = Math.round(Math.min(cw, ch) * 0.07)
+    // 이름표: 각 칸 오른쪽 위 (레퍼런스 계정들의 "Before / After" 자리)
+    const size = Math.round(Math.min(cw, ch) * 0.09)
     const st = spec.labels.style
     for (const [text, left, top] of [
       [spec.labels.before, 0, 0],
       [spec.labels.after, vertical ? 0 : cw + gap, vertical ? ch + gap : 0],
     ] as const) {
       const block = textBlock(text, st, size, cw)
-      const padX = Math.round(size * 0.5)
-      const padY = Math.round(size * 0.25)
-      const bx = left + Math.round(size * 0.6)
-      const by = top + Math.round(size * 0.6)
+      const padX = st.background ? Math.round(size * 0.5) : 0
+      const padY = st.background ? Math.round(size * 0.25) : 0
+      const bx = left + cw - block.width - padX * 2 - Math.round(size * 0.4)
+      const by = top + Math.round(size * 0.35)
       if (st.background) composites.push({ input: Buffer.from(roundedRect(block.width + padX * 2, block.height + padY * 2, st.background, Math.round(size * 0.3))), left: bx, top: by })
       composites.push({ input: Buffer.from(block.svg), left: bx + padX, top: by + padY })
     }

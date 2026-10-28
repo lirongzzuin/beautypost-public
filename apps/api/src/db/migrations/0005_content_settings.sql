@@ -1,0 +1,1 @@
+ALTER TABLE "brand_profiles" ADD COLUMN "content_settings" jsonb DEFAULT '{}'::jsonb NOT NULL;

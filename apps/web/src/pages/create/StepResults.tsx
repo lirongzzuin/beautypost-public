@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useToast } from '@beautypost/ui'
 import { contentApi, GENRE_LABELS, STAGE_LABELS, type Drafts, type Finding, type PresetCatalog } from '~/api/content'
@@ -23,6 +23,7 @@ function errMsg(e: unknown) {
 export default function StepResults({ presets, choices, items, onRestart }: Props) {
   const navigate = useNavigate()
   const toast = useToast()
+  const qc = useQueryClient()
   const shopName = useAuthStore((s) => s.user?.shopName) ?? undefined
   const mediaIds = items.map((i) => i.media!.id)
   const common = { mediaIds, purpose: choices.purpose, industry: choices.industry, mood: choices.mood }
@@ -57,7 +58,9 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
       const d = drafts.data
       const ig = chosenIg ?? d?.instagram[0]?.text ?? ''
       const [caption, ...tagLines] = ig.split(/\n\n(?=#)/)
-      const blog = chosenBlog ?? d?.blog[0]?.text ?? ''
+      // 블로그: 복사한 글 → 탭을 열어 만든 첫 후보 → (처음부터 함께 만든 경우) 첫 후보
+      const lazyBlog = d ? qc.getQueryData<{ blog: { text: string }[] }>(['create', 'blog', d.id])?.blog[0]?.text : undefined
+      const blog = chosenBlog ?? lazyBlog ?? d?.blog[0]?.text ?? ''
       const [blogTitle, ...blogBody] = blog.split('\n')
       await api.post('/posts', {
         caption: caption || ' ',
@@ -81,7 +84,7 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
       {choices.wantDrafts && (
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>📝 게시글</h3>
-          {drafts.isLoading && <Skeleton text="사진을 보고 글을 쓰는 중이에요…" />}
+          {drafts.isLoading && <Skeleton text="사진을 보고 글을 쓰는 중이에요… (보통 5~10초)" />}
           {drafts.isError && <Retry msg={errMsg(drafts.error)} onRetry={() => drafts.refetch()} />}
           {drafts.data && <DraftsPanel drafts={drafts.data} onPickIg={setChosenIg} onPickBlog={setChosenBlog} />}
         </section>
@@ -90,7 +93,7 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
       {choices.wantPhotos && hasPhotos && (
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>🖼 보정 사진</h3>
-          {photos.isLoading && <Skeleton text="사진 보정 중…" />}
+          {photos.isLoading && <Skeleton text="사진 보정 중… (보통 5초 안팎)" />}
           {photos.isError && <Retry msg={errMsg(photos.error)} onRetry={() => photos.refetch()} />}
           {photos.data && <PhotosPanel outputs={photos.data.outputs} clamped={photos.data.clamped} presets={presets} />}
         </section>
@@ -164,10 +167,20 @@ function DraftsPanel({ drafts, onPickIg, onPickBlog }: { drafts: Drafts; onPickI
   const [channel, setChannel] = useState<Channel>('instagram')
   const [texts, setTexts] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
+  // 블로그 글은 길어서 탭을 열 때 만든다 (인스타 글을 기다리지 않게)
+  const blogQuery = useQuery({
+    queryKey: ['create', 'blog', drafts.id],
+    queryFn: () => contentApi.blog(drafts.id),
+    enabled: channel === 'blog' && drafts.blog.length === 0,
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  })
+  const blogs = drafts.blog.length ? drafts.blog : blogQuery.data?.blog ?? []
 
   const list =
     channel === 'blog'
-      ? drafts.blog.map((b, i) => ({ id: `blog-${i}`, label: `후보 ${i + 1}`, text: b.text, findings: b.findings, rewritten: b.rewritten }))
+      ? blogs.map((b, i) => ({ id: `blog-${i}`, label: `후보 ${i + 1}`, text: b.text, findings: b.findings, rewritten: b.rewritten }))
       : drafts.instagram.map((c, i) => ({
           id: `${channel}-${i}`,
           label: `후보 ${i + 1} · ${c.angle}`,
@@ -199,7 +212,9 @@ function DraftsPanel({ drafts, onPickIg, onPickBlog }: { drafts: Drafts; onPickI
           </button>
         ))}
       </div>
-      {channel === 'blog' && drafts.keyword && <p className={styles.hint}>검색 키워드 “{drafts.keyword}”를 제목·소제목에 넣었어요.</p>}
+      {channel === 'blog' && blogQuery.isLoading && <Skeleton text="블로그 글을 쓰는 중이에요… (10~20초)" />}
+      {channel === 'blog' && blogQuery.isError && <Retry msg={errMsg(blogQuery.error)} onRetry={() => blogQuery.refetch()} />}
+      {channel === 'blog' && drafts.keyword && blogs.length > 0 && <p className={styles.hint}>검색 키워드 “{drafts.keyword}”를 제목·소제목에 넣었어요.</p>}
       {list.map((c, i) => {
         const value = texts[c.id] ?? c.text
         return (
@@ -315,7 +330,7 @@ export function VideoPanel({ jobId, warnings, music }: { jobId: string; warnings
           </div>
           {music && (
             <p className={styles.hint}>
-              🎵 인스타그램 앱에서 음악을 넣어 주세요. 이 분위기엔 {music.genres.map((g) => GENRE_LABELS[g] ?? g).join('·')} ({music.bpm[0]}~{music.bpm[1]} BPM)이 잘 어울려요.
+              🎵 영상은 소리 없이 만들어요. 인스타그램 앱에서 인기 음악을 넣으면 노출에 더 좋아요. 이 분위기엔 {music.genres.map((g) => GENRE_LABELS[g] ?? g).join('·')} ({music.bpm[0]}~{music.bpm[1]} BPM)이 잘 어울려요.
             </p>
           )}
         </>
