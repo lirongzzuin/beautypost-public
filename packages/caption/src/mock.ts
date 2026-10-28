@@ -13,20 +13,12 @@ export const mockResponder: MockResponder = (req) => {
   const industry = pick(p, /업종: ([^\n/,]+)/, '시술')
   const count = Number(pick(p, /후보 (\d+)개/, '2'))
   switch (req.task) {
-    case 'media-analysis': {
-      const role = pick(p, /역할: (\S+)/)
-      const stage = role === '비포' ? 'before' : role === '애프터' ? 'after' : role === '시술 과정' ? 'process' : 'unknown'
+    case 'media-analysis':
+      return mockAnalysis(industry, pick(p, /역할: (\S+)/))
+    case 'media-analysis-batch': {
+      const n = Number(pick(p, /사진 (\d+)장/, '1'))
       return {
-        subject: `${industry} 시술 부위를 가까이 찍은 사진`,
-        area: 'other',
-        stage,
-        details: ['가까이서 찍은 시술 부위', '밝은 실내 조명'],
-        colors: ['베이지'],
-        faces: [],
-        focus: { x: 0.5, y: 0.5 },
-        areaBox: { x: 0.3, y: 0.35, w: 0.4, h: 0.2 },
-        textInImage: '',
-        quality: { brightness: 'ok', blurry: false },
+        items: Array.from({ length: n }, (_, i) => ({ photo: i + 1, ...mockAnalysis(industry, pick(p, new RegExp(`사진 ${i + 1}: 원장님이 붙인 역할 (.+)`))) })),
       }
     }
     case 'caption-instagram':
@@ -70,5 +62,21 @@ export const mockResponder: MockResponder = (req) => {
     }
     default:
       throw new Error(`mock: 알 수 없는 작업 ${req.task}`)
+  }
+}
+
+function mockAnalysis(industry: string, role: string) {
+  const stage = role === '비포' ? 'before' : role === '애프터' ? 'after' : role === '시술 과정' ? 'process' : 'unknown'
+  return {
+    subject: `${industry} 시술 부위를 가까이 찍은 사진`,
+    area: 'other',
+    stage,
+    details: ['가까이서 찍은 시술 부위', '밝은 실내 조명'],
+    colors: ['베이지'],
+    faces: [],
+    focus: { x: 0.5, y: 0.5 },
+    areaBox: { x: 0.3, y: 0.35, w: 0.4, h: 0.2 },
+    textInImage: '',
+    quality: { brightness: 'ok', blurry: false },
   }
 }

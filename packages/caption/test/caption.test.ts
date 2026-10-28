@@ -37,7 +37,7 @@ function ctx(over: Partial<DraftContext> = {}): DraftContext {
 
 describe('프롬프트 템플릿', () => {
   it('모든 템플릿이 파싱되고 필수 변수를 채우면 렌더된다', () => {
-    expect([...new Set(allPrompts().map((p) => p.id))].sort()).toEqual(['caption-blog', 'caption-instagram', 'caption-rewrite', 'media-analysis', 'video-captions'])
+    expect([...new Set(allPrompts().map((p) => p.id))].sort()).toEqual(['caption-blog', 'caption-instagram', 'caption-rewrite', 'media-analysis', 'media-analysis-batch', 'video-captions'])
     expect(getPrompt('caption-instagram').version).toBe(2)
   })
   it('{{#if}} 는 중첩할 수 있다', () => {

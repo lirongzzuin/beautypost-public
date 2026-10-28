@@ -18,6 +18,7 @@ import mediaRoutes from './routes/media.js'
 import createRoutes from './routes/create.js'
 import workerRoutes from './routes/worker.js'
 import filesRoutes from './routes/files.js'
+import { AiUnavailableError } from '@beautypost/ai'
 import { toResponse } from './services/errors.js'
 import { getStorage } from './storage/index.js'
 
@@ -77,6 +78,16 @@ app.route('/files', filesRoutes)
 app.onError((err, c) => {
   const known = toResponse(err)
   if (known) return c.json(known.body, known.status)
+  if (err instanceof AiUnavailableError) {
+    // 원인(한도·장애)은 로그에, 원장님께는 할 수 있는 일을
+    console.error(`[AI] 사용 불가 (${err.reason}${err.retryAfterSec ? `, ${err.retryAfterSec}초 뒤 가능` : ''}):`, (err.cause as Error | undefined)?.message?.slice(0, 300))
+    return c.json(
+      err.reason === 'quota'
+        ? { code: 'AI_BUSY', message_ko: 'AI 사용량이 잠깐 몰렸어요. 1분쯤 뒤에 다시 눌러 주세요.' }
+        : { code: 'AI_UNAVAILABLE', message_ko: 'AI 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.' },
+      503,
+    )
+  }
   console.error(err)
   return c.json(
     { code: 'INTERNAL_ERROR', message_ko: '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요.' },

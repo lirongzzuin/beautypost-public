@@ -4,11 +4,10 @@ import { z } from 'zod'
 import { MEDIA_ROLES, getRegistry } from '@beautypost/preset'
 import { getDb, schema } from '../db/index.js'
 import { authMiddleware, entitlementMiddleware, type AuthVariables } from '../middleware/auth.js'
-import { aiRateLimit } from '../middleware/ratelimit.js'
 import { ApiError } from '../services/errors.js'
 import { getAi } from '../services/ai.js'
 import { industryOf, loadShop } from '../services/context.js'
-import { consentAllowed, ensureAnalysis, ownedMedia } from '../services/media.js'
+import { consentAllowed, ensureAnalyses, ownedMedia } from '../services/media.js'
 import { moodPreviews } from '../services/photos.js'
 
 // 올린 사진·영상: 역할(비포·애프터…), 게시 동의, 비전 분석, 무드 미리보기
@@ -55,13 +54,27 @@ media.patch('/:id', async (c) => {
   return c.json({ data: present(updated!) })
 })
 
-media.post('/:id/analyze', entitlementMiddleware, aiRateLimit, async (c) => {
+// 분석은 사진당 1회 캐시되고 장수는 업로드로 제한되므로 하루 생성 횟수(aiRateLimit)에는 세지 않는다
+// POST /api/media/analyze — 여러 장을 AI 요청 한 번으로 (사진마다 부르면 분당 요청 한도에 걸린다)
+media.post('/analyze', entitlementMiddleware, async (c) => {
+  const b = z.object({ ids: z.array(z.string()).min(1).max(10), industry: z.string().nullish() }).safeParse(await c.req.json().catch(() => null))
+  if (!b.success) throw new ApiError(400, 'VALIDATION_ERROR', '입력값을 확인해주세요.')
+  const db = getDb()
+  const userId = c.get('userId')
+  const ctx = await loadShop(db, userId)
+  const rows = await ownedMedia(db, userId, b.data.ids)
+  const industry = getRegistry().industry(industryOf(ctx, b.data.industry ?? null))
+  await ensureAnalyses(db, getAi(), rows, industry.label)
+  return c.json({ data: rows.map(present) })
+})
+
+media.post('/:id/analyze', entitlementMiddleware, async (c) => {
   const db = getDb()
   const userId = c.get('userId')
   const ctx = await loadShop(db, userId)
   const [row] = await ownedMedia(db, userId, [c.req.param('id')!])
   const industry = getRegistry().industry(industryOf(ctx, c.req.query('industry') ?? null))
-  await ensureAnalysis(db, getAi(), row!, industry.label)
+  await ensureAnalyses(db, getAi(), [row!], industry.label)
   return c.json({ data: present(row!) })
 })
 

@@ -7,7 +7,7 @@ import { aiRateLimit, apiRateLimit } from '../middleware/ratelimit.js'
 import { ApiError } from '../services/errors.js'
 import { getAi } from '../services/ai.js'
 import { industryOf, loadShop } from '../services/context.js'
-import { assertConsent, ensureAnalyses, ownedMedia } from '../services/media.js'
+import { assertConsent, ownedMedia, tryAnalyses } from '../services/media.js'
 import { createBlogDrafts, createDrafts, saveFeedback } from '../services/drafts.js'
 import { makePhotos } from '../services/photos.js'
 import { requestVideo } from '../services/videos.js'
@@ -74,7 +74,7 @@ create.post('/photos', entitlementMiddleware, aiRateLimit, async (c) => {
   const rows = await ownedMedia(db, userId, b.mediaIds)
   // 얼굴 여부는 분석으로 안다 → 동의 확인 전에 분석부터 (분석은 사진당 1회 캐시)
   const industry = getRegistry().industry(industryOf(ctx, b.industry))
-  await ensureAnalyses(db, getAi(), rows, industry.label)
+  await tryAnalyses(db, getAi(), rows, industry.label)
   assertConsent(rows)
   return c.json({ data: await makePhotos(db, ctx, rows, b) })
 })

@@ -66,7 +66,7 @@ export default function StepStyle({ presets, purpose, choices, set, items }: Pro
       <label className={`${styles.toggleRow} ${!hasPhotos ? styles.disabled : ''}`}>
         <input type="checkbox" disabled={!hasPhotos} checked={choices.wantPhotos && hasPhotos} onChange={(e) => set({ wantPhotos: e.target.checked })} />
         <span>
-          <strong>보정 사진</strong> {purpose.photoLayout === 'before-after-split' ? '비포·애프터 한 장 + 각 사진' : '사진마다'}
+          <strong>게시용 사진</strong> {purpose.photoLayout === 'before-after-split' ? '비포·애프터 한 장 + 각 사진' : '사진마다'} · 밝기·색감을 맞추고 인스타 크기로
         </span>
       </label>
       {choices.wantPhotos && hasPhotos && (

@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { schema, type Db } from '../db/index.js'
 import { enqueue } from '../jobs/queue.js'
 import { ApiError } from './errors.js'
-import { assertConsent, blurBoxes, ensureAnalyses, type MediaRow } from './media.js'
+import { assertConsent, blurBoxes, tryAnalyses, type MediaRow } from './media.js'
 import { captionSettings, resolveFor, type ShopContext } from './context.js'
 
 // 영상 만들기 요청 → 작업 입력(RenderSpec) 작성 → 작업 큐 등록. 실제 렌더링은 작업자가 한다 (즉시 응답).
@@ -35,7 +35,7 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
   if (dup && dup.status !== 'failed') return { jobId: dup.id, status: dup.status, warnings: [], estimatedSeconds: 0, lines: {} }
   if (dup) key = `${key}:${Date.now()}`
 
-  await ensureAnalyses(db, ai, rows, p.industry.label)
+  await tryAnalyses(db, ai, rows, p.industry.label)
   assertConsent(rows)
 
   const media: RenderMedia[] = rows.map((r) => ({

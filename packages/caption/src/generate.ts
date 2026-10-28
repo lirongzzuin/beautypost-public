@@ -15,6 +15,7 @@ import {
   BlogDrafts,
   InstagramDrafts,
   MediaAnalysis,
+  MediaAnalyses,
   Rewrite,
   VideoCopy,
   type BlogDraft,
@@ -168,14 +169,20 @@ export function hashtagOptions(ctx: DraftContext): Parameters<typeof normalizeHa
 async function rewriteIfBlocked(ai: AiClient, text: string, findings: Finding[]): Promise<string | null> {
   if (!hasBlocking(findings)) return null
   const tpl = getPrompt('caption-rewrite')
-  const { object } = await ai.generate({
-    role: 'copy',
-    task: 'caption-rewrite',
-    schema: Rewrite,
-    prompt: renderPrompt(tpl, { findings: describeFindings(findings.filter((f) => f.severity === 'block')), text }),
-    temperature: 0.2,
-  })
-  return object.text
+  try {
+    const { object } = await ai.generate({
+      role: 'copy',
+      task: 'caption-rewrite',
+      schema: Rewrite,
+      prompt: renderPrompt(tpl, { findings: describeFindings(findings.filter((f) => f.severity === 'block')), text }),
+      temperature: 0.2,
+    })
+    return object.text
+  } catch (e) {
+    // 고쳐 쓰기를 못 해도 초안 전체를 버리지 않는다 — 걸린 표현은 findings 로 화면에 표시된다
+    console.warn('[caption-rewrite] AI 를 쓰지 못해 표시만 해요:', e instanceof Error ? e.message : e)
+    return null
+  }
 }
 
 async function checkInstagram(ai: AiClient, ctx: DraftContext, d: InstagramDraft) {
@@ -265,21 +272,44 @@ export async function generateDrafts(
 
 // ─── 사진 분석 ────────────────────────────────────────────────────────────────
 
+/** 한 번의 AI 호출로 분석하는 최대 사진 수 (많을수록 요청 수는 줄지만 응답이 길어진다) */
+export const ANALYSIS_BATCH = 6
+
+/**
+ * 사진 여러 장을 AI 요청 한 번으로 분석한다 (사진마다 따로 부르면 무료 등급의 분당 요청 한도에 금방 걸린다).
+ * 결과는 입력과 같은 순서. 모델이 빠뜨린 사진은 null (호출한 쪽이 '분석 없음'으로 다룬다).
+ */
+export async function analyzeImages(
+  ai: AiClient,
+  photos: { image: ImageInput; role?: string | null }[],
+  opts: { industryLabel: string },
+): Promise<{ analyses: (MediaAnalysis | null)[]; model: string; prompt: string }> {
+  const tpl = getPrompt('media-analysis-batch')
+  const roles = photos.map((p, i) => (p.role ? `- 사진 ${i + 1}: 원장님이 붙인 역할 ${ROLE_LABELS[p.role] ?? p.role}` : '')).filter(Boolean)
+  const { object, model } = await ai.generate({
+    role: 'vision',
+    task: 'media-analysis-batch',
+    schema: MediaAnalyses,
+    prompt: renderPrompt(tpl, { industry: opts.industryLabel, count: photos.length, photoRoles: roles.join('\n') }),
+    images: photos.map((p) => p.image),
+    temperature: 0,
+  })
+  const analyses: (MediaAnalysis | null)[] = photos.map(() => null)
+  for (const { photo, ...a } of object.items) {
+    if (photo >= 1 && photo <= photos.length && !analyses[photo - 1]) analyses[photo - 1] = a
+  }
+  return { analyses, model, prompt: tpl.ref }
+}
+
+/** 사진 한 장 분석 (analyzeImages 한 장짜리) */
 export async function analyzeImage(
   ai: AiClient,
   image: ImageInput,
   opts: { industryLabel: string; role?: string | null },
 ): Promise<{ analysis: MediaAnalysis; model: string; prompt: string }> {
-  const tpl = getPrompt('media-analysis')
-  const { object, model } = await ai.generate({
-    role: 'vision',
-    task: 'media-analysis',
-    schema: MediaAnalysis,
-    prompt: renderPrompt(tpl, { industry: opts.industryLabel, role: opts.role ? ROLE_LABELS[opts.role] ?? opts.role : '' }),
-    images: [image],
-    temperature: 0,
-  })
-  return { analysis: object, model, prompt: tpl.ref }
+  const r = await analyzeImages(ai, [{ image, role: opts.role }], opts)
+  if (!r.analyses[0]) throw new Error('사진 분석 결과가 비어 있어요')
+  return { analysis: r.analyses[0], model: r.model, prompt: r.prompt }
 }
 
 // ─── 영상 화면 자막 ───────────────────────────────────────────────────────────
@@ -299,7 +329,9 @@ export async function generateVideoCopy(
 ): Promise<{ lines: Record<number, string>; prompt: string }> {
   const tpl = getPrompt('video-captions')
   const vars = baseVars(ctx)
-  const { object } = await ai.generate({
+  // 자막은 기본 문구로도 영상이 성립한다 → AI 를 못 쓰면(한도·장애) 영상을 막지 않고 기본 문구로
+  const object = await ai
+    .generate({
     role: 'copy',
     task: 'video-captions',
     schema: VideoCopy,
@@ -310,6 +342,11 @@ export async function generateVideoCopy(
     }),
     temperature: 0.7,
   })
+    .then((r) => r.object)
+    .catch((e: unknown) => {
+      console.warn('[video-captions] AI 를 쓰지 못해 기본 문구로 만들어요:', e instanceof Error ? e.message : e)
+      return { lines: [] } as VideoCopy
+    })
   const lines: Record<number, string> = {}
   for (const s of slots) {
     const raw = object.lines.find((l) => l.slot === s.index)?.text ?? ''

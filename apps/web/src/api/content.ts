@@ -81,7 +81,8 @@ export const contentApi = {
     api.post<{ data: UploadTicket }>('/upload/ticket', { filename, contentType, size }).then((r) => r.data),
   register: (body: Record<string, unknown>) => api.post<{ data: Media }>('/upload/register', body).then((r) => r.data),
   patchMedia: (id: string, body: { role?: string | null; consent?: Media['consent'] }) => api.patch<{ data: Media }>(`/media/${id}`, body).then((r) => r.data),
-  analyze: (id: string, industry?: string) => api.post<{ data: Media }>(`/media/${id}/analyze${industry ? `?industry=${industry}` : ''}`).then((r) => r.data),
+  /** 여러 장을 AI 요청 한 번으로 분석 (사진마다 부르면 AI 분당 요청 한도에 걸린다) */
+  analyzeMany: (ids: string[], industry?: string) => api.post<{ data: Media[] }>('/media/analyze', { ids, industry }).then((r) => r.data),
   previews: (id: string, industry?: string) =>
     api.post<{ data: { moodId: string; label: string; dataUrl: string }[] }>(`/media/${id}/previews${industry ? `?industry=${industry}` : ''}`).then((r) => r.data),
   drafts: (body: CreateCommon & { keywords?: string; customerId?: string }) => api.post<{ data: Drafts }>('/create/drafts', body).then((r) => r.data),

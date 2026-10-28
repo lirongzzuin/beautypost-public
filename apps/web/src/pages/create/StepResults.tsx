@@ -30,23 +30,33 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
   const key = JSON.stringify(common)
   const once = { retry: false, staleTime: Infinity, gcTime: 30 * 60_000, refetchOnWindowFocus: false } as const
 
+  // 아직 분석 안 된 사진이 있으면 먼저 한 번에 분석한다. 글·사진·영상 요청이 동시에 저마다 분석하면
+  // AI 요청이 몰려 분당 한도에 걸린다. 분석이 실패해도 결과 요청은 보낸다 (각 요청이 알맞게 안내한다)
+  const unanalyzed = items.filter((i) => i.media && !i.media.analysis && i.kind === 'image').map((i) => i.media!.id)
+  const prepare = useQuery({
+    queryKey: ['create', 'analyze', key],
+    queryFn: () => (unanalyzed.length ? contentApi.analyzeMany(unanalyzed, choices.industry) : Promise.resolve([])),
+    ...once,
+  })
+  const ready = prepare.isSuccess || prepare.isError
+
   const drafts = useQuery({
     queryKey: ['create', 'drafts', key, choices.keywords, choices.customerId],
     queryFn: () => contentApi.drafts({ ...common, keywords: choices.keywords || undefined, customerId: choices.customerId || undefined }),
-    enabled: choices.wantDrafts,
+    enabled: ready && choices.wantDrafts,
     ...once,
   })
   const hasPhotos = items.some((i) => i.kind === 'image')
   const photos = useQuery({
     queryKey: ['create', 'photos', key, choices.photoFormats, choices.overlayShopName],
     queryFn: () => contentApi.photos({ ...common, formats: choices.photoFormats, overlayText: choices.overlayShopName ? shopName : undefined }),
-    enabled: choices.wantPhotos && hasPhotos && choices.photoFormats.length > 0,
+    enabled: ready && choices.wantPhotos && hasPhotos && choices.photoFormats.length > 0,
     ...once,
   })
   const video = useQuery({
     queryKey: ['create', 'video', key, choices.videoFormat, choices.keywords],
     queryFn: () => contentApi.video({ ...common, format: choices.videoFormat, keywords: choices.keywords || undefined }),
-    enabled: choices.wantVideo,
+    enabled: ready && choices.wantVideo,
     ...once,
   })
 
@@ -84,7 +94,7 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
       {choices.wantDrafts && (
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>📝 게시글</h3>
-          {drafts.isLoading && <Skeleton text="사진을 보고 글을 쓰는 중이에요… (보통 5~10초)" />}
+          {(!ready || drafts.isLoading) && <Skeleton text="사진을 보고 글을 쓰는 중이에요… (보통 5~10초)" />}
           {drafts.isError && <Retry msg={errMsg(drafts.error)} onRetry={() => drafts.refetch()} />}
           {drafts.data && <DraftsPanel drafts={drafts.data} onPickIg={setChosenIg} onPickBlog={setChosenBlog} />}
         </section>
@@ -92,8 +102,8 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
 
       {choices.wantPhotos && hasPhotos && (
         <section className={styles.panel}>
-          <h3 className={styles.panelTitle}>🖼 보정 사진</h3>
-          {photos.isLoading && <Skeleton text="사진 보정 중… (보통 5초 안팎)" />}
+          <h3 className={styles.panelTitle}>🖼 게시용 사진</h3>
+          {(!ready || photos.isLoading) && <Skeleton text="밝기·색감을 맞추는 중… (보통 5초 안팎)" />}
           {photos.isError && <Retry msg={errMsg(photos.error)} onRetry={() => photos.refetch()} />}
           {photos.data && <PhotosPanel outputs={photos.data.outputs} clamped={photos.data.clamped} presets={presets} />}
         </section>
@@ -102,7 +112,7 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
       {choices.wantVideo && (
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>🎬 영상</h3>
-          {video.isLoading && <Skeleton text="영상 작업을 등록하는 중…" />}
+          {(!ready || video.isLoading) && <Skeleton text="영상 작업을 등록하는 중…" />}
           {video.isError && <Retry msg={errMsg(video.error)} onRetry={() => video.refetch()} />}
           {video.data && (
             <VideoPanel jobId={video.data.jobId} warnings={video.data.warnings} music={presets.moods.find((m) => m.id === choices.mood)?.video.music} />
@@ -114,7 +124,7 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
         <a className={styles.secondaryBtn} href="https://www.instagram.com/" target="_blank" rel="noreferrer">
           인스타그램 열기
         </a>
-        <button type="button" className={styles.secondaryBtn} onClick={savePost} disabled={drafts.isLoading || photos.isLoading}>
+        <button type="button" className={styles.secondaryBtn} onClick={savePost} disabled={!ready || drafts.isLoading || photos.isLoading}>
           게시물로 저장
         </button>
         <button type="button" className={styles.linkBtn} onClick={onRestart}>

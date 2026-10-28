@@ -20,6 +20,9 @@ export const MediaAnalysis = z.object({
 })
 export type MediaAnalysis = z.infer<typeof MediaAnalysis>
 
+/** 여러 장을 한 번에 분석한 결과 (photo = 1부터 시작하는 사진 번호) */
+export const MediaAnalyses = z.object({ items: z.array(MediaAnalysis.extend({ photo: z.number().int().describe('사진 번호 (1부터)') })).max(20) })
+
 export const InstagramDraft = z.object({
   angle: z.string().describe('후킹 방식 (예: 결과형, 질문형, 공감형)'),
   caption: z.string().describe('해시태그를 뺀 본문'),

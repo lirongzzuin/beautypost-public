@@ -44,7 +44,7 @@ export interface AiClient {
 
 export type MockResponder = (req: StructuredRequest<unknown>) => unknown | Promise<unknown>
 
-interface Candidate {
+export interface Candidate {
   name: string
   model: LanguageModel
   providerOptions?: Record<string, Record<string, JSONValue>>
@@ -113,33 +113,103 @@ function toMessages(req: StructuredRequest<unknown>): ModelMessage[] {
   ]
 }
 
+/** 지금 AI 를 쓸 수 없음. reason=quota 는 사용량 한도(무료 등급 분당 요청 수 등), error 는 그 밖의 실패 */
+export class AiUnavailableError extends Error {
+  constructor(
+    readonly reason: 'quota' | 'error',
+    /** 한도라면 몇 초 뒤에 다시 될지 (제공자가 알려 준 값, 모르면 null) */
+    readonly retryAfterSec: number | null,
+    readonly cause?: unknown,
+  ) {
+    super(reason === 'quota' ? 'AI 사용량 한도에 걸렸어요' : 'AI 응답을 받지 못했어요')
+    this.name = 'AiUnavailableError'
+  }
+}
+
+interface FailureInfo {
+  quota: boolean
+  /** 결제 수단이 없어 아예 못 쓰는 상태 (예: AI Gateway 카드 미등록) */
+  billing: boolean
+  retryAfterSec: number | null
+  timeout: boolean
+}
+
+export function describeFailure(err: unknown): FailureInfo {
+  const parts: string[] = []
+  let status: number | undefined
+  for (let e: unknown = err, i = 0; e && i < 5; i++) {
+    const o = e as { message?: string; statusCode?: number; responseBody?: string; lastError?: unknown; cause?: unknown; name?: string }
+    parts.push(String(o.message ?? ''), String(o.responseBody ?? ''), String(o.name ?? ''))
+    status ??= o.statusCode
+    e = o.lastError ?? o.cause
+  }
+  const text = parts.join(' ')
+  const retry = text.match(/retry in ([\d.]+)\s*s/i) ?? text.match(/"retryDelay"\s*:\s*"([\d.]+)s"/)
+  return {
+    quota: status === 429 || /quota|RESOURCE_EXHAUSTED|rate.?limit|too many requests/i.test(text),
+    billing: /credit card|billing account|payment method/i.test(text) && !/quota/i.test(text),
+    retryAfterSec: retry ? Math.ceil(Number(retry[1])) : null,
+    timeout: /timeout|aborted/i.test(text),
+  }
+}
+
+/** 한도에 걸렸을 때 이 시간(초) 안에 풀린다고 하면 기다렸다가 한 번 더 (요청 하나가 너무 길어지지 않게 짧게) */
+const QUOTA_WAIT_MAX_SEC = Number(process.env.AI_QUOTA_WAIT_SEC ?? 20)
+/** 결제 수단이 없어 실패한 모델은 한동안 건너뛴다 (매 요청 1초씩 버리지 않게) */
+const BILLING_SKIP_MS = 10 * 60_000
+const skipUntil = new Map<string, number>()
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 class ModelRouterClient implements AiClient {
+  constructor(private readonly candidatesOf: (role: AiRole) => Candidate[] = candidatesFor) {}
+
   async generate<T>(req: StructuredRequest<T>): Promise<StructuredResult<T>> {
-    const candidates = candidatesFor(req.role)
+    const candidates = this.candidatesOf(req.role).filter((c) => (skipUntil.get(c.name) ?? 0) < Date.now())
     let lastError: unknown
+    let quotaRetry: number | null | undefined // undefined = 한도 때문에 실패한 모델 없음
     for (const { name, model, providerOptions } of candidates) {
-      const t0 = Date.now()
-      try {
-        // AI SDK v6: generateObject 는 deprecated → generateText + Output.object
-        const { output } = await generateText({
-          model,
-          output: Output.object({ schema: req.schema }),
-          system: req.system,
-          messages: toMessages(req as StructuredRequest<unknown>),
-          providerOptions,
-          maxRetries: 1,
-          abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-          ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
-          ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-        })
-        console.log(`[AI] ${req.task} ${name} ${((Date.now() - t0) / 1000).toFixed(1)}초`)
-        return { object: output as T, model: name }
-      } catch (err) {
-        console.error(`[AI] ${req.task}: "${name}" 실패 (${((Date.now() - t0) / 1000).toFixed(1)}초):`, err instanceof Error ? err.message : err)
-        lastError = err
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const t0 = Date.now()
+        try {
+          // AI SDK v6: generateObject 는 deprecated → generateText + Output.object
+          // 재시도는 아래에서 직접 한다 (SDK 재시도는 한도 초과에도 바로 다시 보내 한도를 더 쓴다)
+          const { output } = await generateText({
+            model,
+            output: Output.object({ schema: req.schema }),
+            system: req.system,
+            messages: toMessages(req as StructuredRequest<unknown>),
+            providerOptions,
+            maxRetries: 0,
+            abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+            ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
+            ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+          })
+          console.log(`[AI] ${req.task} ${name} ${((Date.now() - t0) / 1000).toFixed(1)}초`)
+          return { object: output as T, model: name }
+        } catch (err) {
+          const f = describeFailure(err)
+          console.error(`[AI] ${req.task}: "${name}" 실패 (${((Date.now() - t0) / 1000).toFixed(1)}초, ${attempt}번째):`, err instanceof Error ? err.message.slice(0, 300) : err)
+          lastError = err
+          if (f.billing) {
+            skipUntil.set(name, Date.now() + BILLING_SKIP_MS)
+            break
+          }
+          if (f.quota) {
+            quotaRetry = Math.min(quotaRetry ?? Infinity, f.retryAfterSec ?? 60)
+            if (attempt === 1 && f.retryAfterSec !== null && f.retryAfterSec <= QUOTA_WAIT_MAX_SEC) {
+              await sleep(f.retryAfterSec * 1000 + 500)
+              continue
+            }
+            break
+          }
+          if (f.timeout || attempt === 2) break
+          await sleep(800) // 일시적인 서버 오류는 한 번 더
+        }
       }
     }
-    throw lastError ?? new Error('사용할 수 있는 AI 모델이 없어요')
+    if (quotaRetry !== undefined) throw new AiUnavailableError('quota', Number.isFinite(quotaRetry) ? quotaRetry : null, lastError)
+    throw new AiUnavailableError('error', null, lastError ?? new Error('사용할 수 있는 AI 모델이 없어요'))
   }
 }
 
@@ -152,9 +222,10 @@ class MockClient implements AiClient {
   }
 }
 
-export function createAiClient(opts: { mock?: MockResponder } = {}): AiClient {
+/** candidates: 테스트에서 모델 후보를 직접 줄 때 (실제 호출·재시도·건너뛰기 규칙을 그대로 탄다) */
+export function createAiClient(opts: { mock?: MockResponder; candidates?: (role: AiRole) => Candidate[] } = {}): AiClient {
   if (opts.mock) return new MockClient(opts.mock)
-  return new ModelRouterClient()
+  return new ModelRouterClient(opts.candidates)
 }
 
 export function isMockMode(): boolean {

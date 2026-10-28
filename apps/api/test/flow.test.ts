@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { createAiClient, type MockResponder } from '@beautypost/ai'
+import { AiUnavailableError, createAiClient, type MockResponder } from '@beautypost/ai'
 import { mockResponder } from '@beautypost/caption'
 
 // 전체 흐름 통합 테스트: 실제 Hono 앱 + PGlite(메모리) + 로컬 저장소 + 목 AI.
@@ -21,10 +21,15 @@ let app: App
 let token = ''
 let faceMode = false
 
-// 목 모델: 'face' 라는 역할의 사진에는 얼굴이 있다고 답한다
+let aiDown = false
+const aiCalls: { task: string; images: number }[] = []
+
+// 목 모델: faceMode 면 모든 사진에 얼굴이 있다고 답한다. aiDown 이면 사용량 한도처럼 실패한다
 const mock: MockResponder = (req) => {
-  const r = mockResponder(req) as Record<string, unknown>
-  if (req.task === 'media-analysis' && faceMode) return { ...r, faces: [{ x: 0.3, y: 0.2, w: 0.2, h: 0.2 }] }
+  if (aiDown) throw new AiUnavailableError('quota', 55)
+  aiCalls.push({ task: req.task, images: req.images?.length ?? 0 })
+  const r = mockResponder(req) as { items?: Record<string, unknown>[] }
+  if (req.task === 'media-analysis-batch' && faceMode) return { items: r.items!.map((i) => ({ ...i, faces: [{ x: 0.3, y: 0.2, w: 0.2, h: 0.2 }] })) }
   return r
 }
 
@@ -293,5 +298,66 @@ describe('처리할 수 없는 파일·알 수 없는 얼굴', () => {
     expect(r1.json.details.mediaIds).toEqual([v.id])
     expect((await call('PATCH', `/media/${v.id}`, { consent: 'not_needed' })).status).toBe(200)
     expect((await call('POST', '/create/videos', body)).status).toBe(202)
+  })
+})
+
+// 영상 작업을 대기열에 남기므로 작업자 임대 테스트들보다 뒤에 둔다
+describe('AI 요청 수·AI 를 못 쓸 때 (무료 등급 분당 한도)', () => {
+  afterEach(() => {
+    aiDown = false
+    faceMode = false
+  })
+  it('여러 장은 AI 요청 한 번으로 분석하고, 이미 분석한 사진은 다시 부르지 않는다', async () => {
+    const ids = [await uploadPhoto('#b08070', 'before'), await uploadPhoto('#d0a090', 'after'), await uploadPhoto('#c09a80', 'process')]
+    aiCalls.length = 0
+    const r = await call('POST', '/media/analyze', { ids })
+    expect(r.status).toBe(200)
+    expect(r.json.data.map((m: { analysis: { stage: string } }) => m.analysis.stage)).toEqual(['before', 'after', 'process'])
+    expect(aiCalls).toEqual([{ task: 'media-analysis-batch', images: 3 }])
+    // 만들기 3종을 동시에 눌러도 분석은 더 부르지 않는다
+    aiCalls.length = 0
+    const common = { mediaIds: ids, purpose: 'before-after', mood: 'clean-white' }
+    const [d, p, v] = await Promise.all([
+      call('POST', '/create/drafts', common),
+      call('POST', '/create/photos', { ...common, formats: ['feed-square'] }),
+      call('POST', '/create/videos', { ...common, format: 'reel' }),
+    ])
+    expect([d.status, p.status, v.status]).toEqual([200, 200, 202])
+    expect(aiCalls.filter((c) => c.task.startsWith('media-analysis'))).toHaveLength(0)
+    expect(aiCalls.map((c) => c.task).sort()).toEqual(['caption-instagram', 'video-captions'])
+  })
+
+  it('AI 를 못 쓰면: 글은 안내(503), 사진·영상은 원장님이 얼굴 여부를 답하면 그대로 만든다', async () => {
+    const before = await uploadPhoto('#a87868', 'before')
+    const after = await uploadPhoto('#e0b8a0', 'after')
+    aiDown = true
+    const an = await call('POST', '/media/analyze', { ids: [before, after] })
+    expect(an.status).toBe(503)
+    expect(an.json.code).toBe('AI_BUSY')
+    const common = { mediaIds: [before, after], purpose: 'before-after', mood: 'clean-white' }
+    const d = await call('POST', '/create/drafts', common)
+    expect(d.status).toBe(503)
+    expect(d.json.message_ko).toContain('1분')
+    // 분석이 없어 얼굴 여부를 모르는 사진 → 원장님 확인 요청
+    const p1 = await call('POST', '/create/photos', { ...common, formats: ['feed-square'] })
+    expect(p1.status).toBe(409)
+    expect(p1.json.message_ko).toContain('얼굴이 나오는지')
+    for (const id of [before, after]) expect((await call('PATCH', `/media/${id}`, { consent: 'not_needed' })).status).toBe(200)
+    expect((await call('POST', '/create/photos', { ...common, formats: ['feed-square'] })).status).toBe(200)
+    const v = await call('POST', '/create/videos', { ...common, format: 'reel' })
+    expect(v.status).toBe(202)
+    expect(Object.values(v.json.data.lines)).toContain('시술 전') // AI 대신 기본 자막
+  })
+
+  it('나중에 분석이 되어 얼굴이 보이면 원장님이 답한 "얼굴 없음"은 무효 → 동의를 다시 받는다', async () => {
+    const id = await uploadPhoto('#b89080', 'after')
+    aiDown = true
+    await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })
+    expect((await call('PATCH', `/media/${id}`, { consent: 'not_needed' })).status).toBe(200)
+    aiDown = false
+    faceMode = true
+    const r = await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-square'] })
+    expect(r.status).toBe(409)
+    expect(r.json.message_ko).toContain('게시 동의')
   })
 })

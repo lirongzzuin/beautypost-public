@@ -4,7 +4,7 @@ import { useToast } from '@beautypost/ui'
 import { contentApi, ROLE_LABELS, type PresetCatalog } from '~/api/content'
 import { ApiRequestError } from '~/api/client'
 import { uploadMedia } from '~/lib/upload'
-import { needsConsent, type Item } from './types'
+import { faceUnknown, needsConsent, type Item } from './types'
 import styles from './create.module.css'
 
 interface Props {
@@ -26,6 +26,32 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
   const update = (localId: string, patch: Partial<Item>) =>
     setItems((list) => list.map((i) => (i.localId === localId ? { ...i, ...patch } : i)))
 
+  // 분석은 올린 사진을 모아 AI 요청 한 번으로 (사진마다 부르면 AI 분당 요청 한도에 걸린다).
+  // 올리는 중인 파일이 있으면 조금 더 기다렸다가 함께 보낸다
+  const queue = useRef<{ localId: string; mediaId: string }[]>([])
+  const uploading = useRef(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const scheduleAnalysis = () => {
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => void flushAnalysis(), uploading.current > 0 ? 4000 : 300)
+  }
+  async function flushAnalysis() {
+    const batch = queue.current.splice(0, 10)
+    if (!batch.length) return
+    try {
+      const list = await contentApi.analyzeMany(batch.map((b) => b.mediaId), industry)
+      for (const b of batch) {
+        const media = list.find((m) => m.id === b.mediaId)
+        update(b.localId, { ...(media ? { media } : {}), analyzing: false, analysisFailed: !media?.analysis })
+      }
+    } catch (e) {
+      for (const b of batch) update(b.localId, { analyzing: false, analysisFailed: true })
+      const busy = e instanceof ApiRequestError && (e.code === 'AI_BUSY' || e.code === 'AI_UNAVAILABLE')
+      toast.show(busy ? '사진 분석이 잠시 밀려 있어요. 얼굴이 나오는지만 직접 알려 주세요.' : '사진을 분석하지 못했어요. 얼굴이 나오는지만 직접 알려 주세요.', 'error')
+    }
+    if (queue.current.length) void flushAnalysis()
+  }
+
   async function addFiles(role: string, files: FileList | null) {
     if (!files?.length) return
     const room = Math.max(0, 10 - items.length)
@@ -39,17 +65,23 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
         progress: 0,
       }
       setItems((list) => [...list, item])
+      uploading.current++
       void (async () => {
         try {
           const media = await uploadMedia(file, role === 'any' ? null : role, (p) => update(item.localId, { progress: p }))
-          update(item.localId, { media, progress: 100, analyzing: true })
-          // 무엇이 보이는지 분석 (얼굴이 있으면 게시 동의를 물어본다)
-          const analyzed = await contentApi.analyze(media.id, industry).catch(() => media)
-          update(item.localId, { media: analyzed, analyzing: false })
+          // 무엇이 보이는지 분석 (얼굴이 있으면 게시 동의를 물어본다) — 이미 분석된 사진이면 바로
+          if (media.analysis) update(item.localId, { media, progress: 100 })
+          else {
+            update(item.localId, { media, progress: 100, analyzing: true })
+            queue.current.push({ localId: item.localId, mediaId: media.id })
+          }
         } catch (e) {
           const msg = e instanceof ApiRequestError ? e.messageKo : (e as Error).message
           update(item.localId, { error: msg, analyzing: false })
           toast.show(msg || '업로드에 실패했어요.', 'error')
+        } finally {
+          uploading.current--
+          scheduleAnalysis()
         }
       })()
     }
@@ -130,12 +162,14 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
                 <p>
                   {i.kind === 'video' ? (
                     <><strong>이 영상에 고객 얼굴이 나오나요?</strong> 나온다면 게시 동의를 받은 영상만 쓸 수 있어요.</>
+                  ) : faceUnknown(i) ? (
+                    <><strong>이 사진에 고객 얼굴이 나오나요?</strong> 사진 분석이 잠시 안 돼서 직접 여쭤봐요. 나온다면 게시 동의를 받은 사진만 쓸 수 있어요.</>
                   ) : (
                     <><strong>고객 얼굴이 보여요.</strong> 게시 동의를 받은 사진만 쓸 수 있어요.</>
                   )}
                 </p>
                 <div className={styles.consentBtns}>
-                  {i.kind === 'video' && <button type="button" onClick={() => setConsent(i, 'not_needed')}>얼굴 안 나와요</button>}
+                  {faceUnknown(i) && <button type="button" onClick={() => setConsent(i, 'not_needed')}>얼굴 안 나와요</button>}
                   <button type="button" onClick={() => setConsent(i, 'granted')}>게시 동의 받았어요</button>
                   {i.kind === 'image' && allowBlur && (
                     <button type="button" onClick={() => setConsent(i, 'blurred')}>얼굴 가리고 쓸게요</button>
@@ -148,7 +182,7 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
         )
       })}
       <p className={styles.notice}>
-        보정은 밝기·색감까지만 해요. 시술 부위의 모양을 바꾸거나 실제보다 좋아 보이게 만들지 않아요 (비포·애프터는 같은 보정값).
+        사진은 밝기·색감만 맞춰요. 시술 부위의 모양을 바꾸거나 실제보다 좋아 보이게 만들지 않아요 (비포·애프터는 똑같이 맞춰요).
       </p>
     </>
   )

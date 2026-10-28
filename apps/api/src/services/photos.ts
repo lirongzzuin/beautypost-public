@@ -50,7 +50,7 @@ async function logoOf(db: Db, ctx: ShopContext, use?: boolean): Promise<Buffer |
 
 export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req: PhotoRequest): Promise<{ outputs: PhotoOutput[]; clamped: string[] }> {
   const images = rows.filter((r) => r.type === 'image')
-  if (!images.length) throw new ApiError(400, 'NO_PHOTOS', '보정할 사진을 골라 주세요.')
+  if (!images.length) throw new ApiError(400, 'NO_PHOTOS', '사진을 골라 주세요.')
   const reg = getRegistry()
   for (const f of req.formats) {
     if (!reg.has('formats', f) || reg.format(f).kind === 'video') throw new ApiError(400, 'FORMAT_INVALID', `사진으로 만들 수 없는 형식이에요: ${f}`)
