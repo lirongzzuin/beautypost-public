@@ -18,6 +18,7 @@ import {
   MediaAnalyses,
   Rewrite,
   VideoCopy,
+  toMediaAnalysis,
   type BlogDraft,
   type InstagramDraft,
 } from './schemas.js'
@@ -282,7 +283,7 @@ export const ANALYSIS_BATCH = 6
 export async function analyzeImages(
   ai: AiClient,
   photos: { image: ImageInput; role?: string | null }[],
-  opts: { industryLabel: string },
+  opts: { industryLabel: string; areaHint?: string },
 ): Promise<{ analyses: (MediaAnalysis | null)[]; model: string; prompt: string }> {
   const tpl = getPrompt('media-analysis-batch')
   const roles = photos.map((p, i) => (p.role ? `- 사진 ${i + 1}: 원장님이 붙인 역할 ${ROLE_LABELS[p.role] ?? p.role}` : '')).filter(Boolean)
@@ -290,13 +291,13 @@ export async function analyzeImages(
     role: 'vision',
     task: 'media-analysis-batch',
     schema: MediaAnalyses,
-    prompt: renderPrompt(tpl, { industry: opts.industryLabel, count: photos.length, photoRoles: roles.join('\n') }),
+    prompt: renderPrompt(tpl, { industry: opts.industryLabel, count: photos.length, photoRoles: roles.join('\n'), areaHint: opts.areaHint ?? '' }),
     images: photos.map((p) => p.image),
     temperature: 0,
   })
   const analyses: (MediaAnalysis | null)[] = photos.map(() => null)
   for (const { photo, ...a } of object.items) {
-    if (photo >= 1 && photo <= photos.length && !analyses[photo - 1]) analyses[photo - 1] = a
+    if (photo >= 1 && photo <= photos.length && !analyses[photo - 1]) analyses[photo - 1] = toMediaAnalysis(a)
   }
   return { analyses, model, prompt: tpl.ref }
 }
@@ -305,7 +306,7 @@ export async function analyzeImages(
 export async function analyzeImage(
   ai: AiClient,
   image: ImageInput,
-  opts: { industryLabel: string; role?: string | null },
+  opts: { industryLabel: string; areaHint?: string; role?: string | null },
 ): Promise<{ analysis: MediaAnalysis; model: string; prompt: string }> {
   const r = await analyzeImages(ai, [{ image, role: opts.role }], opts)
   if (!r.analyses[0]) throw new Error('사진 분석 결과가 비어 있어요')

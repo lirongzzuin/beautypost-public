@@ -1,60 +1,14 @@
 import sharp from 'sharp'
-import { applyGrade } from '@beautypost/photocraft'
+import { anchorIn, applyGrade, coverage, cropFor, validArea, type Box, type Crop } from '@beautypost/photocraft'
 import type { Grade } from '@beautypost/preset'
 
 // 사진 한 장 → 영상용 "무대": 시술 부위를 중심으로 화면 비율에 맞게 잘라 2배 해상도로 준비해 두고,
 // 프레임마다 확대 비율(z)만 바꿔 잘라 낸다 (천천히 밀어 들어가기·펀치 줌). 2배로 준비해 두면 1픽셀 단위로 끊기지 않는다.
 
-export interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-export interface Crop {
-  left: number
-  top: number
-  width: number
-  height: number
-}
+// 구도(어디를 잘라 낼지)는 사진과 같은 규칙 → @beautypost/photocraft crop.ts
+export { anchorIn, cropFor, type Box, type Crop }
 
 const MAX_SOURCE = 2600 // 아주 큰 사진(4000px 이상)은 미리 줄여 속도를 지킨다
-
-/**
- * 화면(W×H)에 맞는 원본 잘라낼 영역.
- * - area(시술 부위)가 있으면 부위가 화면 폭의 fill 만큼 차도록 가까이 (단, 원본을 maxUpscale 배 넘게 키우지 않음 → 흐려지지 않게)
- * - 없으면 focus 를 중심으로 화면을 꽉 채우는 가장 큰 영역
- */
-export function cropFor(
-  sw: number,
-  sh: number,
-  W: number,
-  H: number,
-  o: { area?: Box | null; focus?: { x: number; y: number } | null; fill?: number; maxUpscale?: number; /** 부위 중심을 둘 세로 위치 (0~1, 기본 가운데) */ anchorY?: number },
-): Crop {
-  const aspect = W / H
-  let cw = Math.min(sw, sh * aspect)
-  const fill = o.fill ?? 0.62
-  const maxUp = o.maxUpscale ?? 1.5
-  let cx = (o.focus?.x ?? 0.5) * sw
-  let cy = (o.focus?.y ?? 0.5) * sh
-  if (o.area && o.area.w > 0 && o.area.h > 0) {
-    const aw = o.area.w * sw
-    const ah = o.area.h * sh
-    // 부위 폭 기준, 그리고 부위 높이가 화면 높이의 80% 안에 들어오게
-    const want = Math.max(aw / fill, (ah / 0.8) * aspect)
-    cw = Math.min(cw, Math.max(want, W / maxUp))
-    cx = (o.area.x + o.area.w / 2) * sw
-    cy = (o.area.y + o.area.h / 2) * sh
-  }
-  // 크기를 먼저 정수로 정하고 위치를 그 안에서 고른다 (따로 반올림하면 1px 넘쳐 extract 가 실패한다)
-  const width = Math.max(1, Math.min(sw, Math.round(cw)))
-  const height = Math.max(1, Math.min(sh, Math.round(width / aspect)))
-  const left = Math.min(sw - width, Math.max(0, Math.round(cx - width / 2)))
-  const top = Math.min(sh - height, Math.max(0, Math.round(cy - height * (o.anchorY ?? 0.5))))
-  return { left, top, width, height }
-}
 
 /** 원본을 방향 보정·축소·색보정까지 한 원시 RGB */
 export async function decodeImage(file: string | Buffer, grade: Grade | null): Promise<{ data: Buffer; width: number; height: number }> {
@@ -111,12 +65,62 @@ export class Stage {
   }
 }
 
-/** 잘라낸 영역 안에서 시술 부위 중심의 화면 위치 (0~1) */
-export function anchorIn(crop: Crop, sw: number, sh: number, area?: Box | null, focus?: { x: number; y: number } | null): { x: number; y: number } {
-  const px = area ? (area.x + area.w / 2) * sw : (focus?.x ?? 0.5) * sw
-  const py = area ? (area.y + area.h / 2) * sh : (focus?.y ?? 0.5) * sh
-  return {
-    x: Math.min(1, Math.max(0, (px - crop.left) / crop.width)),
-    y: Math.min(1, Math.max(0, (py - crop.top) / crop.height)),
+// ─── 사진 장면 배치 ──────────────────────────────────────────────────────────
+
+export interface Placement {
+  crop: Crop
+  /** 화면 일부(가로 꽉 참)에만 사진을 두는 경우 그 세로 위치. null 이면 화면 전체 */
+  win: { top: number; height: number } | null
+  /** 시술 부위 중심 (사진 영역 기준 0~1) */
+  anchor: { x: number; y: number }
+  /** 시술 부위의 화면 세로 범위 (px). 부위를 모르면 null */
+  areaSpan: { top: number; bottom: number } | null
+}
+
+/**
+ * 사진 한 장을 세로 화면에 어떻게 놓을지.
+ * - 시술 부위가 화면 전체(9:16)에 잘리지 않고 들어오면 꽉 채운 클로즈업
+ * - 가로로 긴 부위(양쪽 눈썹)나 가로 사진처럼 꽉 채우면 부위가 잘리는 경우: 화면 가운데에 가로 꽉 찬 사진 칸을 두고
+ *   위아래는 무드 배경색 (자막·이름표는 그 여백에 → 시술 부위를 가리지 않는다)
+ */
+export function placeImage(
+  sw: number,
+  sh: number,
+  W: number,
+  H: number,
+  o: { area?: Box | null; focus?: { x: number; y: number } | null; fill: number },
+): Placement {
+  const area = validArea(o.area) ? o.area : null
+  const span = (crop: Crop, top: number, height: number) =>
+    area ? { top: top + ((area.y * sh - crop.top) / crop.height) * height, bottom: top + (((area.y + area.h) * sh - crop.top) / crop.height) * height } : null
+  const full = cropFor(sw, sh, W, H, o)
+  const fits = area ? coverage(full, sw, sh, area) >= 0.97 : sw / sh <= (W / H) * 1.4
+  if (fits) return { crop: full, win: null, anchor: anchorIn(full, sw, sh, area, o.focus), areaSpan: span(full, 0, H) }
+  const { crop, height } = windowFor(sw, sh, W, Math.round(H * 0.6), o)
+  const top = Math.round(H * 0.47 - height / 2)
+  return { crop, win: { top, height }, anchor: anchorIn(crop, sw, sh, area, o.focus), areaSpan: span(crop, top, height) }
+}
+
+/**
+ * 가로 꽉 찬 사진 칸(폭 W)의 높이와 잘라낼 영역.
+ * 부위를 알면 부위 높이의 4.5배쯤(눈썹이면 눈까지) 보이는 납작한 칸, 모르면 원본 비율 그대로 (최대 maxH).
+ */
+export function windowFor(
+  sw: number,
+  sh: number,
+  W: number,
+  maxH: number,
+  o: { area?: Box | null; focus?: { x: number; y: number } | null; fill: number },
+): { crop: Crop; height: number } {
+  const area = validArea(o.area) ? o.area : null
+  const minAspect = W / maxH
+  const clampA = (a: number) => Math.min(1.5, Math.max(minAspect, a))
+  let aspect = area ? clampA(Math.min(sw, (area.w * sw) / o.fill) / (area.h * sh * 4.5)) : clampA(sw / sh)
+  for (;;) {
+    const height = Math.min(maxH, Math.round(W / aspect))
+    const crop = cropFor(sw, sh, W, height, o)
+    // 부위가 잘리면 칸을 조금씩 세로로 늘린다
+    if (!area || coverage(crop, sw, sh, area) >= 0.97 || aspect <= minAspect + 1e-6) return { crop, height }
+    aspect = clampA(aspect * 0.85)
   }
 }

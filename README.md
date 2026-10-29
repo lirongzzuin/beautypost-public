@@ -69,6 +69,8 @@ API_LOG=/tmp/api.log pnpm --filter @beautypost/web e2e
 - 예전 엔진: `RENDER_ENGINE=filmcraft` — filmcraft 저장소(`./br`), FilmCraft CLI, Python 환경이 필요하고 영상 한 편에 2~3분 걸린다.
 - 환경변수: `RENDER_API_URL`, `RENDER_WORKER_TOKEN`(API 와 같은 값), `RENDER_ENGINE`, `WORK_DIR`, `POLL_INTERVAL_MS`(기본 3초), `LEASE_SEC`, `KEEP_WORK=1`(작업 폴더 남기기), filmcraft 엔진만 `FILMCRAFT_DIR`·`FONTS_DIR`.
 - 내 사진으로 엔진만 바로 돌려 보기: `pnpm --filter @beautypost/reel try <비포.jpg> <애프터.jpg> [과정.jpg|mp4] --mood warm-natural --format reel --out /tmp/reel`
+  (`--area-b x,y,w,h --area-a x,y,w,h` 로 시술 부위를 직접 주면 분석 없이 구도 확인)
+- 게시용 사진(콜라주·한 장)만: `pnpm --filter @beautypost/photocraft try <비포.jpg> <애프터.jpg> --mood warm-natural --out /tmp/photos [--area-b …] [--area-a …]` → `sheet.jpg` 로 한눈에
 - 큐 없이 작업 입력(spec)으로 한 편: `pnpm --filter @beautypost/worker exec tsx scripts/sample-spec.ts .data/s/spec.json --mood trendy-fast && pnpm --filter @beautypost/worker render-local .data/s/spec.json`
 
 ## 배포 (Vercel)

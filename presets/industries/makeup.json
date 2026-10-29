@@ -4,4 +4,5 @@
   "hashtagSeeds": ["#메이크업", "#웨딩메이크업", "#데일리메이크업", "#메이크업샵"],
   "vocabulary": ["베이스", "톤 매칭", "음영", "포인트", "지속력", "TPO"],
   "extraBannedPhrases": [],
+  "areaHint": "메이크업: 얼굴 전체(이마~턱)를 감싸는 상자.",
   "gradeLimits": { "temperature": [-10, 10], "saturation": [-15, 10] } }

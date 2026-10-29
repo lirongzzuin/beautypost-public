@@ -29,6 +29,14 @@ export interface Brand {
   settings: ContentSettings
 }
 
+/** 0~1 비율 상자 (왼쪽 위 기준) */
+export interface AreaBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface Media {
   id: string
   type: 'image' | 'video'
@@ -38,6 +46,8 @@ export interface Media {
   consent: 'unknown' | 'granted' | 'blurred' | 'not_needed'
   faces: { x: number; y: number; w: number; h: number }[] | null
   analysis: Record<string, unknown> | null
+  /** 원장님이 맞춘 시술 부위 (구도의 기준). 없으면 분석 결과 */
+  areaBox: AreaBox | null
   durationSeconds: number | null
 }
 
@@ -80,7 +90,7 @@ export const contentApi = {
   ticket: (filename: string, contentType: string, size: number) =>
     api.post<{ data: UploadTicket }>('/upload/ticket', { filename, contentType, size }).then((r) => r.data),
   register: (body: Record<string, unknown>) => api.post<{ data: Media }>('/upload/register', body).then((r) => r.data),
-  patchMedia: (id: string, body: { role?: string | null; consent?: Media['consent'] }) => api.patch<{ data: Media }>(`/media/${id}`, body).then((r) => r.data),
+  patchMedia: (id: string, body: { role?: string | null; consent?: Media['consent']; areaBox?: AreaBox | null }) => api.patch<{ data: Media }>(`/media/${id}`, body).then((r) => r.data),
   /** 여러 장을 AI 요청 한 번으로 분석 (사진마다 부르면 AI 분당 요청 한도에 걸린다) */
   analyzeMany: (ids: string[], industry?: string) => api.post<{ data: Media[] }>('/media/analyze', { ids, industry }).then((r) => r.data),
   previews: (id: string, industry?: string) =>

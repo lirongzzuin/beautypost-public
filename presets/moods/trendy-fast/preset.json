@@ -1,7 +1,7 @@
 {
   "$schema": "../../_schema/moods.schema.json",
   "id": "trendy-fast",
-  "version": 2,
+  "version": 3,
   "label": "트렌디·빠른 컷",
   "order": 50,
   "description": "선명한 대비와 생동감, 0.5~1초 빠른 컷, 플래시·휩 전환, 굵은 고딕 자막과 펀치줌",
@@ -18,7 +18,6 @@
     "highlights": -8
   },
   "photo": {
-    "frame": "none",
     "overlay": {
       "font": "black-han-sans",
       "weight": "Regular",

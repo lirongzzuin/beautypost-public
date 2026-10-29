@@ -116,15 +116,6 @@
     "photo": {
       "type": "object",
       "properties": {
-        "frame": {
-          "default": "none",
-          "type": "string",
-          "enum": [
-            "none",
-            "border",
-            "polaroid"
-          ]
-        },
         "overlay": {
           "type": "object",
           "properties": {

@@ -92,7 +92,7 @@ describe('filmcraft 프로필·plan', () => {
   it('무드 색보정·자막 서체·전환을 프로필로', () => {
     const prof = toProfile(s, fam) as { style: Record<string, unknown>; short: Record<string, number> }
     expect(prof.style.grade_contrast).toBe(12)
-    expect(prof.style.fun_font).toBe('NanumMyeongjo')
+    expect(prof.style.fun_font).toBe('Pretendard') // 한글 큰 글씨는 고딕 (레퍼런스)
     expect(prof.style.video_transition).toBe('')
     expect(toProfile(spec('process', [m('p', 'process')], { mood: 'warm-natural' }), fam).style).toMatchObject({ video_transition: 'cross_dissolve', video_transition_frames: 9 })
   })

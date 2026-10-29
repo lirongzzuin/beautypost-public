@@ -43,6 +43,13 @@
       "when": 1793180786552,
       "tag": "0005_content_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793236561887,
+      "tag": "0006_media_area_box",
+      "breakpoints": true
     }
   ]
 }

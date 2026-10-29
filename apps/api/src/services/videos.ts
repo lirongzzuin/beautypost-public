@@ -9,6 +9,7 @@ import { enqueue } from '../jobs/queue.js'
 import { ApiError } from './errors.js'
 import { assertConsent, blurBoxes, tryAnalyses, type MediaRow } from './media.js'
 import { captionSettings, resolveFor, type ShopContext } from './context.js'
+import { areaOf } from './photos.js'
 
 // 영상 만들기 요청 → 작업 입력(RenderSpec) 작성 → 작업 큐 등록. 실제 렌더링은 작업자가 한다 (즉시 응답).
 
@@ -28,14 +29,14 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
   const p = resolveFor(ctx, { purpose: req.purpose, industry: req.industry, mood: req.mood, format: req.format })
 
   // 같은 요청을 연달아 누르면 작업을 하나만 (10분 단위). AI 자막을 만들기 전에 확인해 비용을 아낀다.
-  // 이미 실패한 작업은 막지 않는다 → "다시 시도"는 새 작업
+  // 이미 실패한 작업은 막지 않는다 → "다시 시도"는 새 작업. 구도를 고친 뒤면 다른 요청
   const bucket = Math.floor(Date.now() / 600_000)
-  let key = createHash('sha256').update(JSON.stringify([ctx.profile.userId, rows.map((r) => r.id), req, bucket])).digest('hex')
+  let key = createHash('sha256').update(JSON.stringify([ctx.profile.userId, rows.map((r) => [r.id, r.areaBox ?? null]), req, bucket])).digest('hex')
   const [dup] = await db.select().from(schema.jobs).where(eq(schema.jobs.idempotencyKey, key)).limit(1)
   if (dup && dup.status !== 'failed') return { jobId: dup.id, status: dup.status, warnings: [], estimatedSeconds: 0, lines: {} }
   if (dup) key = `${key}:${Date.now()}`
 
-  await tryAnalyses(db, ai, rows, p.industry.label)
+  await tryAnalyses(db, ai, rows, p.industry)
   assertConsent(rows)
 
   const media: RenderMedia[] = rows.map((r) => ({
@@ -44,8 +45,8 @@ export async function requestVideo(db: Db, ai: AiClient, ctx: ShopContext, rows:
     kind: r.type,
     role: r.role ?? 'any',
     durationSec: r.durationSeconds,
-    focus: (r.analysis as unknown as MediaAnalysis | null)?.focus ?? null,
-    area: r.type === 'image' ? (r.analysis as unknown as MediaAnalysis | null)?.areaBox ?? null : null,
+    focus: r.areaBox ? { x: r.areaBox.x + r.areaBox.w / 2, y: r.areaBox.y + r.areaBox.h / 2 } : (r.analysis as unknown as MediaAnalysis | null)?.focus ?? null,
+    area: r.type === 'image' ? areaOf(r) : null,
     blurFaces: r.type === 'image' ? blurBoxes(r) : [],
   }))
   const base = {

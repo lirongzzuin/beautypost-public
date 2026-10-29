@@ -74,7 +74,7 @@ create.post('/photos', entitlementMiddleware, aiRateLimit, async (c) => {
   const rows = await ownedMedia(db, userId, b.mediaIds)
   // 얼굴 여부는 분석으로 안다 → 동의 확인 전에 분석부터 (분석은 사진당 1회 캐시)
   const industry = getRegistry().industry(industryOf(ctx, b.industry))
-  await tryAnalyses(db, getAi(), rows, industry.label)
+  await tryAnalyses(db, getAi(), rows, industry)
   assertConsent(rows)
   return c.json({ data: await makePhotos(db, ctx, rows, b) })
 })

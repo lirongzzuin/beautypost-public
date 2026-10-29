@@ -1,7 +1,7 @@
 {
   "$schema": "../../_schema/moods.schema.json",
   "id": "clean-white",
-  "version": 2,
+  "version": 3,
   "label": "깔끔·화이트톤",
   "order": 10,
   "description": "밝은 노출, 살짝 차가운 화이트밸런스, 낮은 채도. 흰 배경 박스 자막, 컷 1.2~2초, 짧은 크로스페이드",
@@ -20,7 +20,6 @@
     "shadows": 10
   },
   "photo": {
-    "frame": "none",
     "overlay": {
       "font": "pretendard",
       "weight": "Medium",

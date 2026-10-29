@@ -29,7 +29,7 @@ const mock: MockResponder = (req) => {
   if (aiDown) throw new AiUnavailableError('quota', 55)
   aiCalls.push({ task: req.task, images: req.images?.length ?? 0 })
   const r = mockResponder(req) as { items?: Record<string, unknown>[] }
-  if (req.task === 'media-analysis-batch' && faceMode) return { items: r.items!.map((i) => ({ ...i, faces: [{ x: 0.3, y: 0.2, w: 0.2, h: 0.2 }] })) }
+  if (req.task === 'media-analysis-batch' && faceMode) return { items: r.items!.map((i) => ({ ...i, face_boxes_2d: [[200, 300, 400, 500]] })) }
   return r
 }
 
@@ -157,6 +157,18 @@ describe('사진 보정', () => {
     const meta = await sharp(Buffer.from(await file.arrayBuffer())).metadata()
     expect([meta.width, meta.height]).toEqual([1080, 1350])
     expect((await call('POST', '/create/photos', { mediaIds: [before], purpose: 'before-after', formats: ['reel'] })).status).toBe(400)
+  })
+
+  it('구도: 원장님이 맞춘 시술 부위를 저장·되돌리기, 잘못된 상자는 거절', async () => {
+    const id = await uploadPhoto('#c09080', 'before')
+    const box = { x: 0.2, y: 0.6, w: 0.6, h: 0.12 }
+    const r = await call('PATCH', `/media/${id}`, { areaBox: box })
+    expect(r.status).toBe(200)
+    expect(r.json.data.areaBox).toEqual(box)
+    expect((await call('PATCH', `/media/${id}`, { areaBox: { x: 0.8, y: 0.1, w: 0.5, h: 0.1 } })).status).toBe(400) // 사진 밖
+    const p = await call('POST', '/create/photos', { mediaIds: [id], purpose: 'review', formats: ['feed-portrait'] })
+    expect(p.status).toBe(200)
+    expect((await call('PATCH', `/media/${id}`, { areaBox: null })).json.data.areaBox).toBeNull()
   })
 
   it('무드 미리보기 5장 (원장님 사진으로)', async () => {

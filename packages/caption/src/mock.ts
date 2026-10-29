@@ -18,7 +18,11 @@ export const mockResponder: MockResponder = (req) => {
     case 'media-analysis-batch': {
       const n = Number(pick(p, /사진 (\d+)장/, '1'))
       return {
-        items: Array.from({ length: n }, (_, i) => ({ photo: i + 1, ...mockAnalysis(industry, pick(p, new RegExp(`사진 ${i + 1}: 원장님이 붙인 역할 (.+)`))) })),
+        items: Array.from({ length: n }, (_, i) => {
+          const { faces: _f, focus: _p, areaBox: _a, ...rest } = mockAnalysis(industry, pick(p, new RegExp(`사진 ${i + 1}: 원장님이 붙인 역할 (.+)`)))
+          // 모델 출력 형식: 상자는 [ymin, xmin, ymax, xmax] 0~1000
+          return { photo: i + 1, ...rest, area_box_2d: [350, 300, 550, 700], face_boxes_2d: [] }
+        }),
       }
     }
     case 'caption-instagram':

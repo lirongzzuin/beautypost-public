@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import sharp from 'sharp'
 import { MoodPreset, getRegistry } from '@beautypost/preset'
-import { applyGrade, autoPatch, beforeAfter, combineGrade, imageStats, processPhoto, renderCard, textBlock } from '../src/index.js'
+import { applyGrade, autoPatch, beforeAfter, combineGrade, coverage, cropFor, imageStats, pickCompareLayout, processPhoto, renderCard, textBlock } from '../src/index.js'
 
 const ZERO = MoodPreset.shape.grade.parse({})
 const reg = getRegistry()
@@ -127,10 +127,10 @@ describe('processPhoto', () => {
     expect(inside).toBeLessThan(outside / 3)
   })
 
-  it('문구 오버레이와 프레임', async () => {
+  it('문구 오버레이', async () => {
     const mood = reg.mood('lovely-pastel')
     const out = await processPhoto(await synth(800, 1000), {
-      width: 1080, height: 1350, grade: mood.grade, frame: { style: mood.photo.frame, color: mood.palette.accent },
+      width: 1080, height: 1350, grade: mood.grade,
       overlay: { text: '오늘의 네일 완성', style: mood.photo.overlay },
     })
     expect((await sharp(out.data).metadata()).width).toBe(1080)
@@ -157,7 +157,7 @@ describe('비포·애프터', () => {
   it('같은 사진을 넣으면 두 칸이 똑같다 (같은 보정값)', async () => {
     const img = await synth(500, 500)
     const grade = combineGrade(reg.mood('warm-natural').grade, autoPatch([await imageStats(img), await imageStats(img)]))
-    const out = await beforeAfter({ width: 1080, height: 1080, grade, before: { data: img }, after: { data: img }, gap: 0, quality: 100 })
+    const out = await beforeAfter({ width: 1080, height: 1080, grade, before: { data: img }, after: { data: img }, layout: 'side', gap: 0, quality: 100 })
     const { data, info } = await rawOf(out.data)
     let diff = 0
     let n = 0
@@ -194,5 +194,54 @@ describe('글자·카드', () => {
     ] })
     const meta = await sharp(png).metadata()
     expect([meta.width, meta.height]).toEqual([1080, 1920])
+  })
+})
+
+describe('구도: 시술 부위 기준 자르기', () => {
+  // 얼굴 정면 사진(가로 2118×1903)의 양쪽 눈썹 — 운영에서 미간·이마만 남던 사진과 같은 비율
+  const brows = { x: 0.2, y: 0.55, w: 0.6, h: 0.12 }
+
+  it('부위가 화면에 다 들어오고 화면 폭의 상당 부분을 차지한다', () => {
+    const crop = cropFor(2118, 1903, 1080, 1350, { area: brows, fill: 0.72 })
+    expect(coverage(crop, 2118, 1903, brows)).toBeGreaterThan(0.99)
+    expect((brows.w * 2118) / crop.width).toBeGreaterThan(0.6)
+  })
+
+  it('가로로 긴 눈썹은 위아래 비교, 세로로 긴 손톱은 좌우 비교', () => {
+    const gap = 6
+    expect(pickCompareLayout(1080, 1350, gap, [{ width: 2118, height: 1903, area: brows }, { width: 2099, height: 1891, area: brows }])).toBe('stack')
+    expect(pickCompareLayout(1080, 1920, gap, [{ width: 1152, height: 2048, area: { x: 0.3, y: 0.3, w: 0.5, h: 0.08 } }, { width: 1152, height: 2048, area: { x: 0.3, y: 0.3, w: 0.5, h: 0.08 } }])).toBe('stack')
+    const nails = { x: 0.3, y: 0.15, w: 0.4, h: 0.7 }
+    expect(pickCompareLayout(1080, 1350, gap, [{ width: 1152, height: 2048, area: nails }, { width: 1152, height: 2048, area: nails }])).toBe('side')
+  })
+
+  it('부위를 모르면 원본을 많이 남기는 배치 (가로 사진 → 위아래)', () => {
+    expect(pickCompareLayout(1080, 1350, 6, [{ width: 2118, height: 1903 }, { width: 2118, height: 1903 }])).toBe('stack')
+    expect(pickCompareLayout(1080, 1350, 6, [{ width: 1152, height: 2048 }, { width: 1152, height: 2048 }])).toBe('side')
+  })
+
+  it('콜라주 두 칸 모두에 부위(빨간 띠)가 보이고, 테두리가 없다', async () => {
+    // 회색 얼굴 사진의 아래쪽(55~67%)에 빨간 "눈썹" 띠
+    const W0 = 2118, H0 = 1903
+    const img = await sharp({ create: { width: W0, height: H0, channels: 3, background: '#a0a0a0' } })
+      .composite([{ input: { create: { width: Math.round(W0 * 0.6), height: Math.round(H0 * 0.12), channels: 3, background: '#ff0000' } }, left: Math.round(W0 * 0.2), top: Math.round(H0 * 0.55) }])
+      .jpeg().toBuffer()
+    const out = await beforeAfter({ width: 1080, height: 1350, grade: ZERO, before: { data: img, area: brows }, after: { data: img, area: brows }, gap: 6, background: '#ffffff' })
+    const { data, info } = await rawOf(out.data)
+    const redIn = (y0: number, y1: number) => {
+      let n = 0
+      for (let y = y0; y < y1; y += 5) for (let x = 0; x < info.width; x += 5) {
+        const i = (y * info.width + x) * 3
+        if (data[i]! > 200 && data[i + 1]! < 80) n++
+      }
+      return n
+    }
+    const half = Math.floor(info.height / 2)
+    expect(redIn(0, half)).toBeGreaterThan(1000)
+    expect(redIn(half, info.height)).toBeGreaterThan(1000)
+    // 가장자리 픽셀은 사진(회색) 그대로 — 테두리 색이 없다
+    const edge = (x: number, y: number) => data[(y * info.width + x) * 3]!
+    expect(Math.abs(edge(2, 2) - 0xa0)).toBeLessThan(12)
+    expect(Math.abs(edge(info.width - 3, info.height - 3) - 0xa0)).toBeLessThan(12)
   })
 })

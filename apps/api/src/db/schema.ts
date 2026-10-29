@@ -187,6 +187,8 @@ export const media = pgTable('media', {
   consentAt: timestamp('consent_at'),
   // 얼굴 영역 [{x,y,w,h}] (0~1)
   faces: jsonb('faces').$type<{ x: number; y: number; w: number; h: number }[]>(),
+  // 원장님이 직접 맞춘 시술 부위 {x,y,w,h} (0~1) — 구도의 기준. 분석 결과(analysis.areaBox)보다 우선
+  areaBox: jsonb('area_box').$type<{ x: number; y: number; w: number; h: number }>(),
   // 생성물이면 원본 미디어와 만든 방식: upload | photocraft | render | card
   origin: text('origin').notNull().default('upload'),
   parentId: uuid('parent_id'),

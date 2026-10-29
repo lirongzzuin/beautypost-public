@@ -22,7 +22,7 @@ export interface DraftRequest {
 export async function createDrafts(db: Db, ai: AiClient, ctx: ShopContext, rows: MediaRow[], req: DraftRequest) {
   const p = resolveFor(ctx, { purpose: req.purpose, industry: req.industry, mood: req.mood })
   const [, customerName, voice] = await Promise.all([
-    ensureAnalyses(db, ai, rows, p.industry.label),
+    ensureAnalyses(db, ai, rows, p.industry),
     customerNameOf(db, ctx, req.customerId),
     voiceSamples(db, ctx.profile.userId),
   ])
@@ -81,7 +81,7 @@ export async function createBlogDrafts(db: Db, ai: AiClient, ctx: ShopContext, i
   const rows = await ownedMedia(db, ctx.profile.userId, input.mediaIds ?? []).catch(() => [] as MediaRow[])
   const p = resolveFor(ctx, { purpose: input.purpose, industry: input.industry, mood: input.mood })
   const [, customerName, voice] = await Promise.all([
-    ensureAnalyses(db, ai, rows, p.industry.label),
+    ensureAnalyses(db, ai, rows, p.industry),
     customerNameOf(db, ctx, input.customerId),
     voiceSamples(db, ctx.profile.userId),
   ])

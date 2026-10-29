@@ -4,4 +4,5 @@
   "hashtagSeeds": ["#입술반영구", "#립블러쉬", "#입술문신", "#생기립"],
   "vocabulary": ["혈색", "생기", "착색", "컬러 매칭", "입술 라인", "자연 발색"],
   "extraBannedPhrases": ["번짐 없", "착색 없"],
+  "areaHint": "입술: 입술 전체(입꼬리까지)를 감싸는 상자.",
   "gradeLimits": { "temperature": [-8, 8], "tint": [-6, 6], "saturation": [-15, 6], "vibrance": [-15, 6] } }

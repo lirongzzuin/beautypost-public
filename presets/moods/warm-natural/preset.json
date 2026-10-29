@@ -1,7 +1,7 @@
 {
   "$schema": "../../_schema/moods.schema.json",
   "id": "warm-natural",
-  "version": 2,
+  "version": 3,
   "label": "웜·내추럴",
   "order": 20,
   "description": "따뜻한 화이트밸런스, 부드러운 대비, 살짝 바랜 필름 톤. 크림색 자막 박스, 느긋한 컷과 크로스페이드",
@@ -21,7 +21,6 @@
     "fade": 6
   },
   "photo": {
-    "frame": "none",
     "overlay": {
       "font": "pretendard",
       "weight": "Medium",
@@ -52,7 +51,7 @@
         "position": "lower-third"
       },
       "emphasis": {
-        "font": "nanum-myeongjo",
+        "font": "pretendard",
         "weight": "Bold",
         "color": "#ffffff",
         "shadow": true,

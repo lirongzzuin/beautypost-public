@@ -4,6 +4,9 @@ import { getRegistry, resolvePreset } from '@beautypost/preset'
 import {
   allPrompts,
   analyzeImage,
+  analyzeImages,
+  fromBox2d,
+  toMediaAnalysis,
   blogText,
   checkText,
   fixBlogPhotos,
@@ -213,5 +216,33 @@ describe('사진 분석·영상 자막', () => {
     expect(lines[1]).toBe('비포·애프터') // 금지 표현 → 기본 문구 (목적 이름)
     expect([...lines[2]!].length).toBeLessThanOrEqual(10)
     expect(lines[3]).toBe('뷰티룸 · 프로필 링크')
+  })
+})
+
+describe('사진 분석 상자 형식', () => {
+  it('[ymin, xmin, ymax, xmax] 0~1000 → x,y,w,h 0~1, focus 는 부위 중심', () => {
+    const a = toMediaAnalysis({
+      subject: '양쪽 눈썹', area: 'eyebrow', stage: 'after', details: [], colors: [], textInImage: '', quality: { brightness: 'ok', blurry: false },
+      area_box_2d: [550, 200, 670, 800], face_boxes_2d: [[100, 100, 900, 900], [0, 0, 0, 0]],
+    })
+    expect(a.areaBox).toEqual({ x: 0.2, y: 0.55, w: expect.closeTo(0.6, 5), h: expect.closeTo(0.12, 5) })
+    expect(a.focus.x).toBeCloseTo(0.5)
+    expect(a.focus.y).toBeCloseTo(0.61)
+    expect(a.faces).toHaveLength(1) // 크기 0 상자는 버린다
+  })
+
+  it('부위가 없으면 areaBox null, focus 가운데', () => {
+    expect(fromBox2d(null)).toBeNull()
+    const a = toMediaAnalysis({ subject: '', area: 'shop', stage: 'unknown', details: [], colors: [], textInImage: '', quality: { brightness: 'ok', blurry: false }, area_box_2d: null, face_boxes_2d: [] })
+    expect(a.areaBox).toBeNull()
+    expect(a.focus).toEqual({ x: 0.5, y: 0.5 })
+  })
+
+  it('업종의 부위 잡는 법이 프롬프트에 들어간다', async () => {
+    let prompt = ''
+    const ai = createAiClient({ mock: (req) => ((prompt = req.prompt), mockResponder(req)) })
+    const r = await analyzeImages(ai, [{ image: { data: Buffer.from('x'), mediaType: 'image/jpeg' }, role: 'before' }], { industryLabel: '반영구 눈썹', areaHint: getRegistry().industry('eyebrow').areaHint })
+    expect(prompt).toContain('두 눈썹을 함께')
+    expect(r.analyses[0]?.areaBox?.w).toBeCloseTo(0.4)
   })
 })

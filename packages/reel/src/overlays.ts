@@ -19,22 +19,22 @@ function textStyle(s: TextStyle, over: Partial<TextStyle> & { letterSpacing?: nu
   return { font: s.font, weight: s.weight, color: s.color, stroke: s.stroke, shadow: s.shadow, ...over }
 }
 
-/** 첫 장면 한마디. 시술 부위가 화면 위쪽이면 아래에, 아래쪽이면 위에 */
-export async function hookLayer(text: string, style: TextStyle, f: Frame, areaY: number): Promise<Layer> {
+/** 첫 장면 한마디. 시술 부위가 화면 위쪽이면 아래에, 아래쪽이면 위에. centerY 를 주면 그 높이에 (사진 칸 위 여백 등) */
+export async function hookLayer(text: string, style: TextStyle, f: Frame, areaY: number, centerAt?: number): Promise<Layer> {
   const size = Math.round(f.W * 0.088)
   const b = textBlock(text, textStyle(style, { shadow: style.stroke ? false : true }), size, f.W - f.safe.side * 2)
-  const centerY = areaY < 0.5 ? f.H * 0.66 : f.H * 0.3
+  const centerY = centerAt ?? (areaY < 0.5 ? f.H * 0.66 : f.H * 0.3)
   const top = Math.min(f.H - f.safe.bottom - b.height, Math.max(f.safe.top, centerY - b.height / 2))
   return svgLayer(b.svg, (f.W - b.width) / 2, top)
 }
 
 /** 설명 자막: 반투명 띠(무드에 배경색이 있으면) 또는 그림자 글씨. bottom = 띠 아래 끝 y */
-export async function subLayers(text: string, style: TextStyle, f: Frame, bottom: number, center?: number): Promise<{ layers: Layer[]; top: number }> {
+export async function subLayers(text: string, style: TextStyle, f: Frame, bottom: number, center?: number): Promise<{ layers: Layer[]; top: number; height: number }> {
   const size = Math.round(f.W * 0.043)
   const b = textBlock(text, textStyle(style, { shadow: style.background ? false : true }), size, f.W - f.safe.side * 2)
   if (!style.background) {
     const top = center !== undefined ? center - b.height / 2 : bottom - b.height
-    return { layers: [await svgLayer(b.svg, (f.W - b.width) / 2, top)], top }
+    return { layers: [await svgLayer(b.svg, (f.W - b.width) / 2, top)], top, height: b.height }
   }
   const padY = Math.round(size * 0.55)
   const h = b.height + padY * 2
@@ -42,6 +42,7 @@ export async function subLayers(text: string, style: TextStyle, f: Frame, bottom
   return {
     layers: [await svgLayer(rectSvg(f.W, h, style.background, style.backgroundOpacity), 0, top), await svgLayer(b.svg, (f.W - b.width) / 2, top + padY)],
     top,
+    height: h,
   }
 }
 

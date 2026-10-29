@@ -13,7 +13,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "previews": "tsx scripts/mood-previews.ts"
+    "previews": "tsx scripts/mood-previews.ts",
+    "try": "tsx scripts/try.ts"
   },
   "dependencies": {
     "@beautypost/preset": "workspace:*",

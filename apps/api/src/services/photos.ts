@@ -9,7 +9,7 @@ import { ApiError } from './errors.js'
 import { blurBoxes, decodable, readMedia, type MediaRow } from './media.js'
 import { resolveFor, type ShopContext } from './context.js'
 
-// 사진 보정: 프리셋 색감 + 자동 밝기·화이트밸런스(선택한 사진 전체를 합친 통계로 한 번) + 포맷 크롭.
+// 사진 보정: 프리셋 색감 + 자동 밝기·화이트밸런스(선택한 사진 전체를 합친 통계로 한 번) + 시술 부위 기준 크롭. 테두리·띠 장식 없음.
 // 같은 요청의 모든 사진(특히 비포·애프터)에는 같은 보정값을 쓴다.
 
 export interface PhotoRequest {
@@ -33,7 +33,14 @@ export interface PhotoOutput {
 }
 
 function focusOf(row: MediaRow) {
+  const a = row.areaBox
+  if (a) return { x: a.x + a.w / 2, y: a.y + a.h / 2 }
   return (row.analysis as unknown as MediaAnalysis | null)?.focus ?? { x: 0.5, y: 0.5 }
+}
+
+/** 시술 부위 영역 — 원장님이 직접 맞춘 구도(media.area_box)가 분석 결과보다 우선 */
+export function areaOf(row: MediaRow) {
+  return row.areaBox ?? (row.analysis as unknown as MediaAnalysis | null)?.areaBox ?? null
 }
 
 function isDark(row: MediaRow) {
@@ -87,8 +94,7 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
     const grade = combineGrade(p.mood.grade, auto, p.industry.gradeLimits)
     const fmt = p.format
     const overlay = req.overlayText?.trim() ? { text: req.overlayText.trim(), style: p.mood.photo.overlay } : null
-    const frame = { style: p.mood.photo.frame, color: ctx.brandPreset?.brandColor ?? p.mood.palette.accent }
-    const common = { width: fmt.width, height: fmt.height, grade, frame, overlay, logo, reserved: fmt.reserved, safeArea: fmt.safeArea }
+    const common = { width: fmt.width, height: fmt.height, grade, overlay, logo, reserved: fmt.reserved, safeArea: fmt.safeArea }
 
     const before = images.find((r) => r.role === 'before')
     const after = images.find((r) => r.role === 'after')
@@ -97,8 +103,8 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
       tasks.push(async () => ({
         res: await beforeAfter({
           ...common,
-          before: { data: buffers[images.indexOf(before)]!, focus: focusOf(before), blur: blurBoxes(before) },
-          after: { data: buffers[images.indexOf(after)]!, focus: focusOf(after), blur: blurBoxes(after) },
+          before: { data: buffers[images.indexOf(before)]!, focus: focusOf(before), area: areaOf(before), blur: blurBoxes(before) },
+          after: { data: buffers[images.indexOf(after)]!, focus: focusOf(after), area: areaOf(after), blur: blurBoxes(after) },
           labels: { before: p.mood.video.labelText.before, after: p.mood.video.labelText.after, style: { ...label, stroke: null, background: null, shadow: true } },
           background: p.mood.video.dividerColor,
           gap: Math.max(4, Math.round(fmt.width * 0.006)),
@@ -109,7 +115,7 @@ export async function makePhotos(db: Db, ctx: ShopContext, rows: MediaRow[], req
     }
     for (const [i, row] of images.entries()) {
       tasks.push(async () => ({
-        res: await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), blur: blurBoxes(row), denoise }),
+        res: await processPhoto(buffers[i]!, { ...common, focus: focusOf(row), area: areaOf(row), blur: blurBoxes(row), denoise }),
         formatId, kind: 'single', sources: [row], role: row.role,
       }))
     }
@@ -145,8 +151,7 @@ export async function moodPreviews(ctx: ShopContext, row: MediaRow, industry?: s
     reg.data.moods.map(async (m) => {
       const p = resolveFor(ctx, { purpose: reg.data.purposes[0]!.id, industry, mood: m.id, format: 'feed-portrait' })
       const res = await processPhoto(small, {
-        width: 320, height: 400, grade: combineGrade(p.mood.grade, auto, p.industry.gradeLimits), focus: focusOf(row), blur: blurBoxes(row),
-        frame: { style: p.mood.photo.frame, color: p.mood.palette.accent }, quality: 80,
+        width: 320, height: 400, grade: combineGrade(p.mood.grade, auto, p.industry.gradeLimits), focus: focusOf(row), area: areaOf(row), blur: blurBoxes(row), quality: 80,
       })
       return { moodId: m.id, label: m.label, dataUrl: `data:image/jpeg;base64,${res.data.toString('base64')}` }
     }),

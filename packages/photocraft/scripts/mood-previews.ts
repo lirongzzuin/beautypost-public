@@ -32,7 +32,6 @@ for (const m of reg.data.moods) {
   const r = await beforeAfter({
     width: 1080, height: 1350, grade: m.grade, before: { data: before }, after: { data: after },
     labels: { before: 'BEFORE', after: 'AFTER', style: m.photo.overlay },
-    frame: { style: m.photo.frame, color: m.palette.accent },
     overlay: { text: `${m.label} · 샵 이름`, style: m.photo.overlay }, background: m.palette.background,
   })
   const thumb = await sharp(r.data).resize(480, 600).jpeg({ quality: 82, mozjpeg: true }).toBuffer()

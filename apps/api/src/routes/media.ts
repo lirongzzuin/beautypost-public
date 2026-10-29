@@ -19,6 +19,12 @@ const Patch = z.object({
   // granted: 고객 게시 동의 확인 · blurred: 얼굴 가림으로 게시 · unknown: 되돌리기
   // not_needed: 얼굴이 안 나온다고 원장님이 확인 (대표 화면을 못 읽은 영상)
   consent: z.enum(['granted', 'blurred', 'not_needed', 'unknown']).optional(),
+  // 원장님이 맞춘 시술 부위 (0~1). null 이면 분석 결과로 되돌리기
+  areaBox: z
+    .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), w: z.number().min(0.02).max(1), h: z.number().min(0.02).max(1) })
+    .refine((b) => b.x + b.w <= 1.001 && b.y + b.h <= 1.001)
+    .nullable()
+    .optional(),
 })
 
 media.patch('/:id', async (c) => {
@@ -50,6 +56,11 @@ media.patch('/:id', async (c) => {
     set.consent = body.data.consent
     set.consentAt = body.data.consent === 'unknown' ? null : new Date()
   }
+  if (body.data.areaBox !== undefined) {
+    if (row!.type !== 'image') throw new ApiError(400, 'NOT_IMAGE', '구도는 사진에서만 맞출 수 있어요.')
+    set.areaBox = body.data.areaBox
+  }
+  if (!Object.keys(set).length) return c.json({ data: present(row!) })
   const [updated] = await db.update(schema.media).set(set).where(eq(schema.media.id, row!.id)).returning()
   return c.json({ data: present(updated!) })
 })
@@ -64,7 +75,7 @@ media.post('/analyze', entitlementMiddleware, async (c) => {
   const ctx = await loadShop(db, userId)
   const rows = await ownedMedia(db, userId, b.data.ids)
   const industry = getRegistry().industry(industryOf(ctx, b.data.industry ?? null))
-  await ensureAnalyses(db, getAi(), rows, industry.label)
+  await ensureAnalyses(db, getAi(), rows, industry)
   return c.json({ data: rows.map(present) })
 })
 
@@ -74,7 +85,7 @@ media.post('/:id/analyze', entitlementMiddleware, async (c) => {
   const ctx = await loadShop(db, userId)
   const [row] = await ownedMedia(db, userId, [c.req.param('id')!])
   const industry = getRegistry().industry(industryOf(ctx, c.req.query('industry') ?? null))
-  await ensureAnalyses(db, getAi(), [row!], industry.label)
+  await ensureAnalyses(db, getAi(), [row!], industry)
   return c.json({ data: present(row!) })
 })
 
@@ -90,7 +101,7 @@ export function present(m: typeof schema.media.$inferSelect) {
   return {
     id: m.id, type: m.type, url: m.originalUrl, thumbnailUrl: m.thumbnailUrl, width: m.width, height: m.height,
     durationSeconds: m.durationSeconds, role: m.role, consent: m.consent, faces: m.faces ?? null,
-    analysis: m.analysis ?? null, origin: m.origin, formatId: m.formatId, createdAt: m.createdAt,
+    analysis: m.analysis ?? null, areaBox: m.areaBox ?? null, origin: m.origin, formatId: m.formatId, createdAt: m.createdAt,
   }
 }
 

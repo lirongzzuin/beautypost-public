@@ -49,12 +49,15 @@ async function analysisImage(row: MediaRow): Promise<Buffer | null> {
 /** 이 인스턴스에서 진행 중인 분석 (글·사진·영상 요청이 동시에 와도 같은 사진을 두 번 분석하지 않게) */
 const inflight = new Map<string, Promise<void>>()
 
+/** 분석에 필요한 업종 정보 (이름 + 시술 부위 잡는 법) */
+export type AnalysisIndustry = { label: string; areaHint?: string }
+
 /**
  * 아직 분석하지 않은 사진·영상(대표 화면)을 분석해 media.analysis 에 저장한다 (사진당 1회).
  * 여러 장을 AI 요청 한 번(최대 ANALYSIS_BATCH 장)으로 묶는다 — 사진마다 요청하면 분당 요청 한도에 바로 걸린다.
  * AI 를 쓸 수 없으면 AiUnavailableError 를 그대로 던진다 (호출한 쪽이 계속할지 정한다).
  */
-export async function ensureAnalyses(db: Db, ai: AiClient, rows: MediaRow[], industryLabel: string): Promise<void> {
+export async function ensureAnalyses(db: Db, ai: AiClient, rows: MediaRow[], industry: AnalysisIndustry): Promise<void> {
   const waits: Promise<void>[] = []
   const mine: MediaRow[] = []
   for (const r of rows) {
@@ -65,7 +68,7 @@ export async function ensureAnalyses(db: Db, ai: AiClient, rows: MediaRow[], ind
   }
   for (let i = 0; i < mine.length; i += ANALYSIS_BATCH) {
     const chunk = mine.slice(i, i + ANALYSIS_BATCH)
-    const run = analyzeChunk(db, ai, chunk, industryLabel)
+    const run = analyzeChunk(db, ai, chunk, industry)
     const settled = run.then(
       () => undefined,
       () => undefined,
@@ -87,9 +90,9 @@ export async function ensureAnalyses(db: Db, ai: AiClient, rows: MediaRow[], ind
  * 사진·영상 만들기용: 분석은 얼굴 확인·구도 잡기에 쓰지만, AI 를 잠시 못 쓴다고 결과물을 막지는 않는다.
  * 분석 없는 사진은 원장님이 얼굴 여부를 직접 답했을 때만 쓰인다 (assertConsent).
  */
-export async function tryAnalyses(db: Db, ai: AiClient, rows: MediaRow[], industryLabel: string): Promise<void> {
+export async function tryAnalyses(db: Db, ai: AiClient, rows: MediaRow[], industry: AnalysisIndustry): Promise<void> {
   try {
-    await ensureAnalyses(db, ai, rows, industryLabel)
+    await ensureAnalyses(db, ai, rows, industry)
   } catch (e) {
     if (!(e instanceof AiUnavailableError)) throw e
     console.warn(`[analysis] AI 를 쓸 수 없어 분석 없이 진행 (${e.reason}): ${rows.filter((r) => !r.analysis).length}장`)
@@ -97,8 +100,8 @@ export async function tryAnalyses(db: Db, ai: AiClient, rows: MediaRow[], indust
 }
 
 /** 한 장만 (예전 경로 호환) */
-export async function ensureAnalysis(db: Db, ai: AiClient, row: MediaRow, industryLabel: string): Promise<MediaAnalysis | null> {
-  await ensureAnalyses(db, ai, [row], industryLabel)
+export async function ensureAnalysis(db: Db, ai: AiClient, row: MediaRow, industry: AnalysisIndustry): Promise<MediaAnalysis | null> {
+  await ensureAnalyses(db, ai, [row], industry)
   return (row.analysis as unknown as MediaAnalysis | null) ?? null
 }
 
@@ -107,14 +110,14 @@ async function reload(db: Db, row: MediaRow): Promise<void> {
   if (fresh) Object.assign(row, fresh)
 }
 
-async function analyzeChunk(db: Db, ai: AiClient, rows: MediaRow[], industryLabel: string): Promise<void> {
+async function analyzeChunk(db: Db, ai: AiClient, rows: MediaRow[], industry: AnalysisIndustry): Promise<void> {
   const imgs = await Promise.all(rows.map((r) => analysisImage(r)))
   const targets = rows.flatMap((r, i) => (imgs[i] ? [{ row: r, image: imgs[i]! }] : []))
   if (!targets.length) return
   const { analyses } = await analyzeImages(
     ai,
     targets.map((t) => ({ image: { data: t.image, mediaType: 'image/jpeg' }, role: t.row.role })),
-    { industryLabel },
+    { industryLabel: industry.label, areaHint: industry.areaHint },
   )
   await Promise.all(
     targets.map(async ({ row }, i) => {

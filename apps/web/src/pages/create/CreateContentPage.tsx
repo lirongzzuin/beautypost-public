@@ -85,7 +85,7 @@ export default function CreateContentPage() {
       <div className={styles.body}>
         <h2 className={styles.stepTitle}>{STEP_TITLES[step]}</h2>
         {step === 1 && <StepPurpose presets={presets.data} choices={choices} set={set} />}
-        {step === 2 && <StepUpload purpose={purpose} industry={choices.industry} items={items} setItems={setItems} />}
+        {step === 2 && <StepUpload purpose={purpose} industry={choices.industry} industryLabel={presets.data?.industries.find((i) => i.id === choices.industry)?.label ?? ''} items={items} setItems={setItems} />}
         {step === 3 && <StepStyle presets={presets.data} purpose={purpose} choices={choices} set={set} items={uploaded} />}
         {step === 4 && <StepResults presets={presets.data} choices={choices} items={uploaded} onRestart={() => { setItems([]); setStep(1) }} />}
       </div>

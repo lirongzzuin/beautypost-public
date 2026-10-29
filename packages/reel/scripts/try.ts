@@ -1,5 +1,6 @@
 // 로컬 사진으로 영상 하나 만들어 보기 (엔진 확인용)
 //   pnpm --filter @beautypost/reel try <비포.jpg> <애프터.jpg> [과정.jpg|mp4 ...] [--mood warm-natural] [--format reel] [--out /tmp/reel]
+//     [--area-b x,y,w,h] [--area-a x,y,w,h]  (시술 부위 0~1, 분석 결과 대신)
 import { mkdirSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import { getRegistry, resolvePreset } from '@beautypost/preset'
@@ -18,14 +19,21 @@ const mood = opt('mood', 'warm-natural')
 const format = opt('format', 'reel')
 const purpose = opt('purpose', 'before-after')
 const out = resolve(opt('out', '/tmp/reel'))
+const box = (v: string) => {
+  if (!v) return null
+  const [x, y, w, h] = v.split(',').map(Number)
+  return { x: x!, y: y!, w: w!, h: h! }
+}
+const areaB = box(opt('area-b', ''))
+const areaA = box(opt('area-a', ''))
 const [before, after, ...rest] = args
 if (!before || !after) throw new Error('비포·애프터 파일이 필요해요')
 mkdirSync(out, { recursive: true })
 
 const p = resolvePreset(getRegistry(), { purpose, industry: 'eyebrow', format, mood })
 const media: RenderMedia[] = [
-  { id: 'b', url: before, kind: 'image', role: 'before', focus: null, blurFaces: [] },
-  { id: 'a', url: after, kind: 'image', role: 'after', focus: null, blurFaces: [] },
+  { id: 'b', url: before, kind: 'image', role: 'before', focus: null, area: areaB, blurFaces: [] },
+  { id: 'a', url: after, kind: 'image', role: 'after', focus: null, area: areaA, blurFaces: [] },
   ...rest.map((f, i): RenderMedia => ({ id: `p${i}`, url: f, kind: /\.(mp4|mov)$/i.test(f) ? 'video' : 'image', role: 'process', durationSec: 6, focus: null, blurFaces: [] })),
 ]
 const spec = RenderSpec.parse({

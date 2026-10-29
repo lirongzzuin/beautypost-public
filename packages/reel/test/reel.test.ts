@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 import { getRegistry, resolvePreset } from '@beautypost/preset'
 import { RenderSpec, planVideo, type RenderMedia } from '@beautypost/render'
-import { anchorIn, cropFor, ffmpegPath, probe, renderReel } from '../src/index.js'
+import { anchorIn, cropFor, ffmpegPath, placeImage, probe, renderReel } from '../src/index.js'
 
 describe('cropFor — 시술 부위 클로즈업 구도', () => {
   it('부위가 없으면 화면 비율로 꽉 채우는 가장 큰 영역 (focus 중심)', () => {
@@ -52,6 +52,37 @@ describe('cropFor — 시술 부위 클로즈업 구도', () => {
     const area = { x: 0.4, y: 0.5, w: 0.2, h: 0.05 }
     const c = cropFor(2000, 3000, 1080, 958, { area, anchorY: 0.33 })
     expect(anchorIn(c, 2000, 3000, area).y).toBeCloseTo(0.33, 1)
+  })
+})
+
+describe('placeImage — 세로 화면에 사진 놓기', () => {
+  // 가로로 긴 얼굴 정면 사진의 양쪽 눈썹 (운영에서 미간만 보이던 사진과 같은 비율)
+  const brows = { x: 0.2, y: 0.64, w: 0.6, h: 0.11 }
+
+  it('양쪽 눈썹이 9:16 에 다 안 들어가면 가운데 사진 칸 (부위는 잘리지 않고, 눈까지 보이는 납작한 칸)', () => {
+    const p = placeImage(2118, 1903, 1080, 1920, { area: brows, fill: 0.62 })
+    expect(p.win).not.toBeNull()
+    expect(p.win!.height).toBeLessThan(1920 * 0.6 + 1)
+    expect(1080 / p.win!.height).toBeGreaterThan(1.2) // 이마·머리까지 다 넣지 않는다
+    const c = p.crop
+    expect(c.left).toBeLessThanOrEqual(brows.x * 2118 + 1)
+    expect(c.left + c.width).toBeGreaterThanOrEqual((brows.x + brows.w) * 2118 - 1)
+    expect(c.top).toBeLessThanOrEqual(brows.y * 1903)
+    expect(c.top + c.height).toBeGreaterThanOrEqual((brows.y + brows.h) * 1903)
+    // 부위의 화면 위치는 사진 칸 안
+    expect(p.areaSpan!.top).toBeGreaterThanOrEqual(p.win!.top)
+    expect(p.areaSpan!.bottom).toBeLessThanOrEqual(p.win!.top + p.win!.height)
+  })
+
+  it('작은 부위(한쪽 눈썹)는 화면 전체 클로즈업', () => {
+    const p = placeImage(1152, 2048, 1080, 1920, { area: { x: 0.35, y: 0.3, w: 0.3, h: 0.06 }, fill: 0.62 })
+    expect(p.win).toBeNull()
+  })
+
+  it('부위를 모르는 가로 사진은 잘라 버리지 않고 사진 칸에 거의 다 보여 준다', () => {
+    const p = placeImage(2118, 1903, 1080, 1920, { fill: 0.62 })
+    expect(p.win).not.toBeNull()
+    expect((p.crop.width * p.crop.height) / (2118 * 1903)).toBeGreaterThan(0.8)
   })
 })
 

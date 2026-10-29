@@ -187,6 +187,10 @@
           "maxItems": 2
         }
       }
+    },
+    "areaHint": {
+      "default": "",
+      "type": "string"
     }
   },
   "required": [

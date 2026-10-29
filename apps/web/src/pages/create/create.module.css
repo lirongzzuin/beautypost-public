@@ -592,3 +592,69 @@
 
 /* 하단 메뉴가 보이는 페이지 (만든 영상) — 마지막 항목이 메뉴에 가리지 않게 */
 .withNav { padding-bottom: var(--bottom-nav-height); }
+
+/* 구도 맞추기 */
+.framingBtn {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.framingSet { background: var(--color-primary); }
+
+.framingNote {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.framingHelp {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.framingArea {
+  position: relative;
+  width: 100%;
+  margin: 0 auto var(--space-3);
+  touch-action: none;
+  user-select: none;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-3);
+}
+
+.framingArea img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.framingBox {
+  position: absolute;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  cursor: move;
+}
+
+.framingHandle {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  border: 2px solid var(--color-primary);
+}

@@ -20,8 +20,48 @@ export const MediaAnalysis = z.object({
 })
 export type MediaAnalysis = z.infer<typeof MediaAnalysis>
 
-/** 여러 장을 한 번에 분석한 결과 (photo = 1부터 시작하는 사진 번호) */
-export const MediaAnalyses = z.object({ items: z.array(MediaAnalysis.extend({ photo: z.number().int().describe('사진 번호 (1부터)') })).max(20) })
+/** [ymin, xmin, ymax, xmax] 0~1000 — Gemini 가 학습한 상자 형식 (x,y,w,h 비율보다 위치가 훨씬 정확하다) */
+const Box2d = z.array(z.number()).length(4)
+
+/** 여러 장을 한 번에 분석한 결과 (모델 출력 그대로, photo = 1부터 시작하는 사진 번호). toMediaAnalysis 로 바꿔 저장한다 */
+export const MediaAnalyses = z.object({
+  items: z
+    .array(
+      MediaAnalysis.omit({ faces: true, focus: true, areaBox: true }).extend({
+        photo: z.number().int().describe('사진 번호 (1부터)'),
+        area_box_2d: Box2d.nullable().describe('시술 부위 [ymin, xmin, ymax, xmax] 0~1000. 안 보이면 null'),
+        face_boxes_2d: z.array(Box2d).max(10).describe('얼굴마다 [ymin, xmin, ymax, xmax] 0~1000'),
+      }),
+    )
+    .max(20),
+})
+export type MediaAnalysesItem = z.infer<typeof MediaAnalyses>['items'][number]
+
+type Box = z.infer<typeof Box>
+
+/** [ymin, xmin, ymax, xmax] (0~1000) → {x,y,w,h} (0~1). 뒤집히거나 너무 작은 상자는 버린다 */
+export function fromBox2d(b: number[] | null | undefined): Box | null {
+  if (!b || b.length !== 4) return null
+  const c = (v: number) => Math.min(1, Math.max(0, v / 1000))
+  const [y0, x0, y1, x1] = b.map(c) as [number, number, number, number]
+  const x = Math.min(x0, x1)
+  const y = Math.min(y0, y1)
+  const w = Math.abs(x1 - x0)
+  const h = Math.abs(y1 - y0)
+  return w > 0.01 && h > 0.01 ? { x, y, w, h } : null
+}
+
+/** 모델 출력 한 장 → 저장하는 분석 형식. focus 는 부위 상자의 중심 (없으면 가운데) */
+export function toMediaAnalysis(item: Omit<MediaAnalysesItem, 'photo'>): MediaAnalysis {
+  const { area_box_2d, face_boxes_2d, ...rest } = item
+  const areaBox = fromBox2d(area_box_2d)
+  return {
+    ...rest,
+    faces: face_boxes_2d.map(fromBox2d).filter((b): b is Box => !!b),
+    focus: areaBox ? { x: areaBox.x + areaBox.w / 2, y: areaBox.y + areaBox.h / 2 } : { x: 0.5, y: 0.5 },
+    areaBox,
+  }
+}
 
 export const InstagramDraft = z.object({
   angle: z.string().describe('후킹 방식 (예: 결과형, 질문형, 공감형)'),

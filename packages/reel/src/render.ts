@@ -1,12 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import sharp from 'sharp'
-import { applyGrade, autoPatch, combineGrade, imageStats, textBlock } from '@beautypost/photocraft'
+import { applyGrade, autoPatch, combineGrade, compareCells, imageStats, pickCompareLayout, textBlock, type CompareLayout } from '@beautypost/photocraft'
 import type { Grade } from '@beautypost/preset'
 import type { PlannedClip, RenderMedia, RenderSpec, VideoPlan } from '@beautypost/render'
 import { Encoder, decodeFrames, probe } from './ffmpeg.js'
 import { brandLayers, hookLayer, labelLayer, subLayers, watermarkLayer, type Frame } from './overlays.js'
-import { blend, contrast, flash, mix, rectSvg, svgLayer, type Layer } from './raster.js'
-import { Stage, anchorIn, cropFor, decodeImage } from './stage.js'
+import { blend, contrast, flash, hexLuminance, mix, rectSvg, svgLayer, type Layer } from './raster.js'
+import { Stage, cropFor, decodeImage, placeImage, windowFor, type Placement } from './stage.js'
 
 // 기본 렌더 엔진: 장면 목록(VideoPlan) → 프레임을 메모리에서 직접 합성 → ffmpeg(H.264)로 굽기.
 // FilmCraft(편집기 MCP 를 명령 수백 개로 조작, 15초 영상에 2~3분)보다 10배 가까이 빠르고, 화면 문법을 레퍼런스에 맞춰 세밀하게 다룬다.
@@ -51,6 +51,11 @@ interface Scene {
 }
 
 const LOOKAHEAD = 6 // 동시에 미리 만드는 프레임 수 (sharp 는 libuv 스레드에서 병렬)
+
+/** 배경 위에서 읽히는 글자색 (대비가 모자라면 검정·흰색) */
+function readableOn(color: string, bg: string): string {
+  return contrast(color, bg) >= 3 ? color : hexLuminance(bg) > 0.4 ? '#111111' : '#ffffff'
+}
 
 function easeOut(t: number) {
   return 1 - (1 - t) ** 3
@@ -98,6 +103,15 @@ export async function renderReel(input: ReelInput): Promise<ReelResult> {
   const brandLine = spec.shop.booking?.trim() || spec.shop.region || null
   const brand = await brandLayers(spec.shop.name, brandLine, caps.main, f, aboveWatermark)
 
+  // 사진 칸 바깥 바탕: 무드 배경색 한 장 (프레임마다 복사해 쓴다)
+  const bg = mood.palette.background
+  const background = await sharp({ create: { width: W, height: H, channels: 3, background: bg } }).raw().toBuffer()
+  // 비교 화면(사진 두 칸)에서는 샵 이름을 사진 위 여백에 띠 없이 (사진 위에 띠를 얹지 않는다)
+  const plainBrand = { ...caps.main, background: null, color: readableOn(caps.main.color, bg) }
+  const brandH = await brandLayers(spec.shop.name, brandLine, plainBrand, f, H).then((b) => H - b.top)
+  const brandTop = await brandLayers(spec.shop.name, brandLine, plainBrand, f, f.safe.top + brandH)
+  const subRoom = Math.round(W * 0.13) // 사진 칸 아래 자막 한 줄 자리
+
   const transitionKind = mood.video.transition === 'cut' ? 'cut' : mood.video.transition === 'flash' ? 'flash' : 'crossfade'
   const transitionFrames = Math.max(0, Math.round(mood.video.transitionSec * fps))
   const scenes: Scene[] = []
@@ -122,19 +136,23 @@ export async function renderReel(input: ReelInput): Promise<ReelResult> {
     let openVideo: (() => AsyncGenerator<Buffer>) | null = null
     let compareRegions: { top: number; height: number }[] = []
     let seam: number | undefined
+    let placed: Placement | null = null
+    let block: { top: number; bottom: number } | null = null
     if (clip.card) {
       stage = await Stage.fromFrame(await cardFrame(clip, spec, f, handle), W, H)
     } else if (clip.compare) {
-      const built = await compareFrame(clip, files, decode, f, spec.format.id === 'feed-square' ? 'side' : 'stack', mood.video.dividerColor)
+      const room = { top: clip.brand ? f.safe.top + brandH + Math.round(W * 0.03) : f.safe.top, bottom: aboveWatermark - (clip.caption ? subRoom : 0) }
+      const built = await compareFrame(clip, files, decode, f, bg, room)
       compareRegions = built.regions
       seam = built.seam
+      block = built.block
       stage = await Stage.fromFrame(built.frame, W, H)
     } else if (clip.media!.kind === 'image') {
       const src = await decode(files[clip.media!.id]!)
-      const crop = cropFor(src.width, src.height, W, H, { area: clip.media!.area, focus: clip.focus, fill: clip.role === 'hook' ? 0.58 : 0.62 })
-      const anchor = anchorIn(crop, src.width, src.height, clip.media!.area, clip.focus)
-      areaY = anchor.y
-      stage = await Stage.fromRaw(src, crop, W, H, anchor)
+      placed = placeImage(src.width, src.height, W, H, { area: clip.media!.area, focus: clip.focus, fill: clip.role === 'hook' ? 0.58 : 0.62 })
+      const win = placed.win
+      areaY = win ? (win.top + placed.anchor.y * win.height) / H : placed.anchor.y
+      stage = await Stage.fromRaw(src, placed.crop, W, win ? win.height : H, placed.anchor)
     } else {
       const info = await probe(files[clip.media!.id]!)
       const len = Math.min(clip.end - clip.start, Math.max(0.2, info.duration - clip.start))
@@ -143,27 +161,46 @@ export async function renderReel(input: ReelInput): Promise<ReelResult> {
       const file = files[clip.media!.id]!
       openVideo = () => decodeFrames(file, { start: clip.start, duration: len, width: W, height: H, fps, focus: clip.focus, count: frames, signal: input.signal })
     }
+    const win = placed?.win ?? null
 
-    // 장면 글자
+    // 장면 글자 — 사진 칸이 화면 일부면 위·아래 여백에, 화면 전체면 시술 부위를 피해서
     const layers: { layer: Layer; animate: boolean }[] = []
-    if (clip.caption?.style === 'big') layers.push({ layer: await hookLayer(clip.caption.text, caps.emphasis, f, areaY), animate: true })
+    if (clip.caption?.style === 'big') {
+      const style = { ...caps.emphasis, color: win ? readableOn(caps.emphasis.color, bg) : caps.emphasis.color }
+      const at = win ? (f.safe.top + win.top) / 2 : undefined
+      layers.push({ layer: await hookLayer(clip.caption.text, style, f, areaY, at), animate: true })
+    }
     let subBottom = aboveWatermark
-    if (clip.brand) {
+    if (clip.brand && block) {
+      for (const l of brandTop.layers) layers.push({ layer: l, animate: true })
+    } else if (clip.brand) {
       for (const l of brand.layers) layers.push({ layer: l, animate: true })
       subBottom = brand.top - Math.round(W * 0.02)
     }
     if (clip.caption?.style === 'sub' && clip.caption.text) {
-      // 비교 화면은 위아래 사진 경계에 (사진 속 시술 부위를 가리지 않게)
-      const sub = await subLayers(clip.caption.text, caps.main, f, subBottom, seam)
+      // 비교 화면은 위아래 사진 경계에, 사진 칸 아래 여백이 있으면 그 가운데에 (사진 속 시술 부위를 가리지 않게)
+      let center = block ? Math.round((block.bottom + aboveWatermark) / 2) : seam
+      if (win && center === undefined) {
+        const below = win.top + win.height
+        center = Math.min(below + Math.round(W * 0.09), (below + subBottom) / 2)
+      }
+      let sub = await subLayers(clip.caption.text, caps.main, f, subBottom, center)
+      const span = placed?.areaSpan
+      if (!win && span && sub.top < span.bottom && sub.top + sub.height > span.top) {
+        // 띠가 시술 부위에 걸리면 부위 위쪽(자리가 없으면 아래쪽)으로
+        const h = sub.height
+        const above = span.top - Math.round(W * 0.03) - h / 2
+        sub = await subLayers(clip.caption.text, caps.main, f, subBottom, above - h / 2 >= f.safe.top ? above : span.bottom + Math.round(W * 0.03) + h / 2)
+      }
       for (const l of sub.layers) layers.push({ layer: l, animate: !sameSlotAsPrev })
     }
-    if (clip.chip && !clip.compare && !clip.card) layers.push({ layer: await labelLayer(clip.chip, caps.label, f), animate: !(prev?.chip === clip.chip) })
+    if (clip.chip && !clip.compare && !clip.card) layers.push({ layer: await labelLayer(clip.chip, caps.label, f, win ?? undefined, win ? 0.085 : 0.1), animate: !(prev?.chip === clip.chip) })
     if (clip.compare) {
       const t = mood.video.labelText
       layers.push({ layer: await labelLayer(t.before, caps.label, f, compareRegions[0], 0.085), animate: false })
       layers.push({ layer: await labelLayer(t.after, caps.label, f, compareRegions[1], 0.085), animate: false })
     }
-    if (watermark && !clip.card) layers.push({ layer: watermark, animate: false })
+    if (watermark && !clip.card) layers.push({ layer: win || block ? await watermarkLayer(handle, readableOn(mood.video.watermarkColor, bg), f, base) : watermark, animate: false })
 
     const animFrames = Math.max(1, Math.round(0.28 * fps))
     const popAnimation = caps.main.animation === 'pop' || caps.emphasis.animation === 'pop'
@@ -188,6 +225,12 @@ export async function renderReel(input: ReelInput): Promise<ReelResult> {
       motion,
       continued: !!next && next.slotIndex === clip.slotIndex,
       render: async (n) => {
+        if (st && win) {
+          // 사진 칸만 움직이고 바탕(무드 배경색)은 그대로
+          const frame = Buffer.from(background)
+          ;(await st.frame(zoomAt(motion, frames > 1 ? n / (frames - 1) : 0))).copy(frame, win.top * W * 3)
+          return compose(frame, n)
+        }
         if (st) return compose(await st.frame(zoomAt(motion, frames > 1 ? n / (frames - 1) : 0)), n)
         vf ??= open!()
         const r = await vf.next()
@@ -265,35 +308,44 @@ async function compareFrame(
   files: Record<string, string>,
   decode: (file: string) => Promise<{ data: Buffer; width: number; height: number }>,
   f: Frame,
-  layout: 'stack' | 'side',
-  divider: string,
-): Promise<{ frame: Buffer; regions: { top: number; height: number }[]; seam?: number }> {
+  bg: string,
+  /** 사진 두 칸을 둘 세로 범위 (위: 샵 이름 아래, 아래: 자막·워터마크 위) */
+  room: { top: number; bottom: number },
+): Promise<{ frame: Buffer; regions: { top: number; height: number }[]; seam?: number; block: { top: number; bottom: number } | null }> {
   const { W, H } = f
-  const gap = Math.max(4, Math.round(W * 0.006))
-  const cells = layout === 'stack' ? { w: W, h: Math.floor((H - gap) / 2) } : { w: Math.floor((W - gap) / 2), h: H }
-  const one = async (m: RenderMedia, anchorY: number) => {
-    const src = await decode(files[m.id]!)
-    // 비포·애프터를 같은 배율로 (같은 fill) → 공정한 비교.
-    // 위아래 배치에서는 아래 칸의 시술 부위를 칸 위쪽에 둔다 (아래쪽은 샵 이름 띠·인스타 화면 버튼 자리)
-    const crop = cropFor(src.width, src.height, cells.w, cells.h, { area: m.area, focus: m.focus, fill: 0.55, anchorY })
-    return sharp(src.data, { raw: { width: src.width, height: src.height, channels: 3 } }).extract(crop).resize(cells.w, cells.h, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer()
+  const gap = Math.max(6, Math.round(W * 0.008))
+  const pair = [clip.compare!.before, clip.compare!.after]
+  const srcs = await Promise.all(pair.map((m) => decode(files[m.id]!)))
+  const sources = pair.map((m, i) => ({ width: srcs[i]!.width, height: srcs[i]!.height, area: m.area, focus: m.focus }))
+  // 위아래 / 좌우 중 시술 부위가 잘리지 않고 크게 보이는 쪽 (사진과 같은 규칙)
+  const layout: CompareLayout = pickCompareLayout(W, H, gap, sources, 0.55)
+  const cut = (i: number, w: number, h: number) => {
+    const src = srcs[i]!
+    // 비포·애프터를 같은 배율로 (같은 fill) → 공정한 비교
+    const crop = cropFor(src.width, src.height, w, h, { area: sources[i]!.area, focus: sources[i]!.focus, fill: 0.55 })
+    return sharp(src.data, { raw: { width: src.width, height: src.height, channels: 3 } }).extract(crop).resize(w, h, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer()
   }
-  const stack = layout === 'stack'
-  const [b, a] = await Promise.all([one(clip.compare!.before, stack ? 0.55 : 0.5), one(clip.compare!.after, stack ? 0.33 : 0.5)])
-  const frame = await sharp({ create: { width: W, height: H, channels: 3, background: divider } })
-    .composite([
-      { input: b, left: 0, top: 0 },
-      { input: a, left: layout === 'stack' ? 0 : cells.w + gap, top: layout === 'stack' ? cells.h + gap : 0 },
-    ])
+  if (layout === 'side') {
+    const cells = compareCells(W, H, gap, 'side')
+    const [b, a] = await Promise.all([cut(0, cells.w, cells.h), cut(1, cells.w, cells.h)])
+    const frame = await sharp({ create: { width: W, height: H, channels: 3, background: bg } })
+      .composite([{ input: b, left: 0, top: 0 }, { input: a, left: cells.w + gap, top: 0 }])
+      .removeAlpha()
+      .raw()
+      .toBuffer()
+    return { frame, regions: [{ top: f.safe.top, height: H }, { top: f.safe.top, height: H }], block: null }
+  }
+  // 위아래: 가로 꽉 찬 사진 칸 두 개를 같은 높이로, 화면 가운데 (칸 높이는 시술 부위에 맞춘 납작한 비율 — 눈썹이면 눈까지)
+  const maxCell = Math.floor((room.bottom - room.top - gap) / 2)
+  const h = Math.max(...sources.map((s) => windowFor(s.width, s.height, W, maxCell, { area: s.area, focus: s.focus, fill: 0.55 }).height))
+  const top = Math.round((room.top + room.bottom - (h * 2 + gap)) / 2)
+  const [b, a] = await Promise.all([cut(0, W, h), cut(1, W, h)])
+  const frame = await sharp({ create: { width: W, height: H, channels: 3, background: bg } })
+    .composite([{ input: b, left: 0, top }, { input: a, left: 0, top: top + h + gap }])
     .removeAlpha()
     .raw()
     .toBuffer()
-  // 이름표 자리: 위아래 배치면 각 칸의 위쪽 (위 칸은 상단 세이프존 아래로)
-  const regions =
-    layout === 'stack'
-      ? [{ top: Math.max(f.safe.top, 0), height: cells.h }, { top: cells.h + gap, height: cells.h }]
-      : [{ top: f.safe.top, height: H }, { top: f.safe.top, height: H }]
-  return { frame, regions, seam: layout === 'stack' ? cells.h + gap / 2 : undefined }
+  return { frame, regions: [{ top, height: h }, { top: top + h + gap, height: h }], seam: top + h + gap / 2, block: { top, bottom: top + h * 2 + gap } }
 }
 
 // ─── 글자 카드 (이벤트 제목·관리 팁 등): 여백 많은 공지 카드 ──────────────────────

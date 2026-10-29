@@ -1,7 +1,7 @@
 {
   "$schema": "../_schema/purposes.schema.json",
   "id": "before-after",
-  "version": 2,
+  "version": 3,
   "label": "비포·애프터",
   "order": 10,
   "description": "시술 전후 변화가 주인공. 결과로 후킹 → 비포 → (과정) → 애프터 → 위아래 비교 + 샵 이름",
@@ -90,8 +90,8 @@
       {
         "role": "compare",
         "durationSec": [
-          2.4,
-          3.2
+          3.2,
+          4.2
         ],
         "source": "compare",
         "brand": true,

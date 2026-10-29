@@ -1,23 +1,29 @@
-import { useRef, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useToast } from '@beautypost/ui'
 import { contentApi, ROLE_LABELS, type PresetCatalog } from '~/api/content'
 import { ApiRequestError } from '~/api/client'
 import { uploadMedia } from '~/lib/upload'
 import { faceUnknown, needsConsent, type Item } from './types'
+import FramingSheet from './FramingSheet'
 import styles from './create.module.css'
 
 interface Props {
   purpose: PresetCatalog['purposes'][number]
   industry: string
+  industryLabel: string
   items: Item[]
   setItems: Dispatch<SetStateAction<Item[]>>
 }
 
 let seq = 0
 
-export default function StepUpload({ purpose, industry, items, setItems }: Props) {
+/** 시술 부위를 모르는 사진 (분석 실패 + 원장님이 구도를 안 맞춤) */
+const unframed = (i: Item) => i.kind === 'image' && !!i.media && !i.analyzing && !i.media.areaBox && !(i.media.analysis as { areaBox?: unknown } | null)?.areaBox && !!i.analysisFailed
+
+export default function StepUpload({ purpose, industry, industryLabel, items, setItems }: Props) {
   const toast = useToast()
+  const [framing, setFraming] = useState<Item | null>(null)
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
   // 얼굴 가림은 브랜드 설정에서 켠 경우만 보여 준다 (기본 끔)
   const brand = useQuery({ queryKey: ['brand'], queryFn: contentApi.brand, staleTime: 60_000 })
@@ -133,6 +139,11 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
                   {i.error && <span className={`${styles.thumbNote} ${styles.thumbError}`}>실패</span>}
                   {i.media?.consent === 'blurred' && <span className={styles.thumbNote}>얼굴 가림</span>}
                   {i.media?.consent === 'granted' && <span className={styles.thumbNote}>동의 확인</span>}
+                  {i.kind === 'image' && i.media && !i.analyzing && (
+                    <button type="button" className={`${styles.framingBtn} ${i.media.areaBox ? styles.framingSet : ''}`} onClick={() => setFraming(i)}>
+                      구도
+                    </button>
+                  )}
                   <button type="button" className={styles.removeBtn} onClick={() => remove(i.localId)} aria-label="빼기">
                     ×
                   </button>
@@ -157,6 +168,11 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
                 }}
               />
             </div>
+            {list.some(unframed) && (
+              <p className={styles.framingNote}>
+                사진 분석이 안 돼서 시술 부위를 아직 몰라요. 사진의 <strong>구도</strong>를 눌러 시술 부위를 감싸 주시면 그 부분이 잘 보이게 잘라요.
+              </p>
+            )}
             {list.filter(needsConsent).map((i) => (
               <div key={i.localId} className={styles.consentBox}>
                 <p>
@@ -181,8 +197,15 @@ export default function StepUpload({ purpose, industry, items, setItems }: Props
           </section>
         )
       })}
+      <FramingSheet
+        item={framing}
+        industryLabel={industryLabel}
+        onClose={() => setFraming(null)}
+        onSaved={(item, media) => update(item.localId, { media })}
+      />
       <p className={styles.notice}>
-        사진은 밝기·색감만 맞춰요. 시술 부위의 모양을 바꾸거나 실제보다 좋아 보이게 만들지 않아요 (비포·애프터는 똑같이 맞춰요).
+        사진은 밝기·색감만 맞추고 테두리 같은 장식은 넣지 않아요. 시술 부위의 모양을 바꾸거나 실제보다 좋아 보이게 만들지 않아요 (비포·애프터는 똑같이 맞춰요).
+        시술 부위가 잘 보이게 자르며, 구도는 사진의 <strong>구도</strong>에서 직접 맞출 수 있어요.
       </p>
     </>
   )

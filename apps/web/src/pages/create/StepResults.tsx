@@ -28,6 +28,8 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
   const mediaIds = items.map((i) => i.media!.id)
   const common = { mediaIds, purpose: choices.purpose, industry: choices.industry, mood: choices.mood }
   const key = JSON.stringify(common)
+  // 원장님이 구도를 고치면 사진·영상은 새로 만든다 (글은 그대로)
+  const framing = JSON.stringify(items.map((i) => i.media?.areaBox ?? null))
   const once = { retry: false, staleTime: Infinity, gcTime: 30 * 60_000, refetchOnWindowFocus: false } as const
 
   // 아직 분석 안 된 사진이 있으면 먼저 한 번에 분석한다. 글·사진·영상 요청이 동시에 저마다 분석하면
@@ -48,13 +50,13 @@ export default function StepResults({ presets, choices, items, onRestart }: Prop
   })
   const hasPhotos = items.some((i) => i.kind === 'image')
   const photos = useQuery({
-    queryKey: ['create', 'photos', key, choices.photoFormats, choices.overlayShopName],
+    queryKey: ['create', 'photos', key, framing, choices.photoFormats, choices.overlayShopName],
     queryFn: () => contentApi.photos({ ...common, formats: choices.photoFormats, overlayText: choices.overlayShopName ? shopName : undefined }),
     enabled: ready && choices.wantPhotos && hasPhotos && choices.photoFormats.length > 0,
     ...once,
   })
   const video = useQuery({
-    queryKey: ['create', 'video', key, choices.videoFormat, choices.keywords],
+    queryKey: ['create', 'video', key, framing, choices.videoFormat, choices.keywords],
     queryFn: () => contentApi.video({ ...common, format: choices.videoFormat, keywords: choices.keywords || undefined }),
     enabled: ready && choices.wantVideo,
     ...once,
@@ -266,6 +268,7 @@ function PhotosPanel({ outputs, clamped, presets }: { outputs: { mediaId: string
   return (
     <>
       {clamped.length > 0 && <p className={styles.hint}>업종 기준에 맞게 색감을 조금 줄였어요 (실제와 다르게 보이지 않도록).</p>}
+      <p className={styles.hint}>시술 부위가 잘려 보이면 ← 뒤로 가서 사진의 <strong>구도</strong>를 맞춘 뒤 다시 만들어 주세요.</p>
       <div className={styles.photoGrid}>
         {outputs.map((o) => (
           <figure key={o.mediaId} className={styles.photoCard}>

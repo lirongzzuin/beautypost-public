@@ -1,7 +1,7 @@
 {
   "$schema": "../../_schema/moods.schema.json",
   "id": "modern-black-gold",
-  "version": 2,
+  "version": 3,
   "label": "모던·블랙&골드",
   "order": 30,
   "description": "또렷한 대비, 낮은 채도, 깊은 그림자. 검정 카드 + 골드 포인트, 명조 강조 자막, 하드 컷",
@@ -19,7 +19,6 @@
     "temperature": 2
   },
   "photo": {
-    "frame": "border",
     "overlay": {
       "font": "nanum-myeongjo",
       "weight": "Bold",
@@ -50,7 +49,7 @@
         "position": "lower-third"
       },
       "emphasis": {
-        "font": "nanum-myeongjo",
+        "font": "pretendard",
         "weight": "Bold",
         "color": "#e6c98f",
         "shadow": true,

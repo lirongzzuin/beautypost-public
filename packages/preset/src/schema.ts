@@ -76,8 +76,8 @@ export const MoodPreset = z.object({
   order: z.number().int().default(100), // 목록 정렬
   palette: Palette,
   grade: Grade,
+  // 사진은 보정·크롭만 (테두리·띠 장식 없음). overlay 는 원장님이 문구를 넣을 때의 글자 모양
   photo: z.object({
-    frame: z.enum(['none', 'border', 'polaroid']).default('none'),
     overlay: TextStyle,
   }),
   video: z.object({
@@ -178,6 +178,8 @@ export const IndustryPreset = z.object({
   vocabulary: z.array(z.string()).default([]),
   extraBannedPhrases: z.array(z.string()).default([]),
   gradeLimits: GradeLimits.default({}),
+  // 사진 분석에서 "시술 부위" 상자를 어떻게 잡을지 (구도의 기준). 예: 양쪽 눈썹을 함께
+  areaHint: z.string().default(''),
 })
 
 // ─── 폰트 (presets/fonts/<id>.json) ───────────────────────────────────────────
@@ -216,7 +218,7 @@ export const PolicyList = z.object({
 export const MoodOverrides = z.object({
   palette: Palette.partial().optional(),
   grade: GradePatch.optional(),
-  photo: z.object({ frame: MoodPreset.shape.photo.shape.frame.optional(), overlay: TextStyle.partial().optional() }).optional(),
+  photo: z.object({ overlay: TextStyle.partial().optional() }).optional(),
   video: z
     .object({
       durationSec: Range.optional(),

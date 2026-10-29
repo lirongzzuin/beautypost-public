@@ -2,16 +2,11 @@ import sharp from 'sharp'
 import type { Grade, TextStyle } from '@beautypost/preset'
 import { applyGrade, type ImageStats } from './tone.js'
 import { roundedRect, textBlock } from './text.js'
+import { compareCells, cropFor, pickCompareLayout, type Box, type CompareLayout } from './crop.js'
 
-// 사진 한 장 처리: 방향 보정 → (얼굴 가림) → 포맷 크롭 → (약한 노이즈 제거) → 색보정 → 프레임 → 문구·로고.
+// 사진 한 장 처리: 방향 보정 → (얼굴 가림) → 포맷 크롭(시술 부위 기준) → (약한 노이즈 제거) → 색보정 → 문구·로고.
+// 테두리·띠 같은 장식은 넣지 않는다 (원장님 요청: 보정만). 문구·로고는 원장님이 넣겠다고 한 경우만.
 // 모든 보정 값은 호출하는 쪽이 정한다 (같은 값을 비포·애프터에 똑같이 넘기는 것은 호출 쪽 책임 → beforeAfter()).
-
-export interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
 
 export interface OverlaySpec {
   text: string
@@ -23,13 +18,14 @@ export interface OverlaySpec {
 export interface PhotoSpec {
   width: number
   height: number
-  /** 크롭할 때 남길 중심 (0~1). 기본 가운데 */
+  /** 크롭할 때 남길 중심 (0~1). 기본 가운데. area 가 있으면 area 를 따른다 */
   focus?: { x: number; y: number }
+  /** 시술 부위 영역 (원본 기준 0~1) — 부위 전체가 들어오게 자른다 */
+  area?: Box | null
   grade: Grade
   denoise?: boolean
   /** 흐리게 할 영역 (원본 기준 0~1) — 고객 얼굴 가림 */
   blur?: Box[]
-  frame?: { style: 'none' | 'border' | 'polaroid'; color: string }
   overlay?: OverlaySpec | null
   logo?: Buffer | null
   /** 문구·로고가 들어가면 안 되는 자리 (예: 스토리 링크 스티커), 출력 픽셀 좌표 */
@@ -75,18 +71,11 @@ async function blurRegions(img: sharp.Sharp, boxes: Box[]): Promise<sharp.Sharp>
   return sharp(await sharp(data).composite(patches.filter((p): p is NonNullable<typeof p> => !!p)).toBuffer())
 }
 
-/** 출력 크기로 꽉 채워 자르기. 초점이 화면 밖으로 나가지 않게 오프셋을 정한다 */
-async function cover(img: sharp.Sharp, W: number, H: number, focus = { x: 0.5, y: 0.5 }): Promise<sharp.Sharp> {
-  const meta = await img.metadata()
-  const sw = meta.width!
-  const sh = meta.height!
-  const scale = Math.max(W / sw, H / sh)
-  const rw = Math.max(W, Math.round(sw * scale))
-  const rh = Math.max(H, Math.round(sh * scale))
-  const left = Math.min(rw - W, Math.max(0, Math.round(focus.x * rw - W / 2)))
-  const top = Math.min(rh - H, Math.max(0, Math.round(focus.y * rh - H / 2)))
-  const resized = await img.resize(rw, rh, { fit: 'fill' }).toBuffer()
-  return sharp(resized).extract({ left, top, width: W, height: H })
+/** 출력 크기로 꽉 채워 자르기 (시술 부위 기준 구도 → crop.ts) */
+async function cover(img: sharp.Sharp, W: number, H: number, o: { area?: Box | null; focus?: { x: number; y: number } | null; fill: number }): Promise<sharp.Sharp> {
+  const { data, info } = await img.toBuffer({ resolveWithObject: true })
+  const crop = cropFor(info.width, info.height, W, H, { ...o, maxUpscale: 1.6 })
+  return sharp(await sharp(data).extract(crop).resize(W, H, { fit: 'fill', kernel: 'lanczos3' }).toBuffer())
 }
 
 async function gradeRaw(img: sharp.Sharp, grade: Grade): Promise<Buffer> {
@@ -136,30 +125,17 @@ export async function overlayComposites(spec: PhotoSpec, W: number, H: number): 
   return out
 }
 
-/** 프레임 안쪽 사진 영역. 사진은 처음부터 이 크기로 만들고 나중에 테두리를 두른다 (잘림 없음) */
-function frameInsets(W: number, H: number, frame: PhotoSpec['frame']) {
-  if (!frame || frame.style === 'none') return { m: 0, bottom: 0, iw: W, ih: H }
-  const m = Math.round(W * (frame.style === 'border' ? 0.025 : 0.05))
-  const bottom = frame.style === 'polaroid' ? Math.round(H * 0.09) : 0
-  return { m, bottom, iw: W - m * 2, ih: H - m * 2 - bottom }
-}
-
-async function framed(inner: Buffer, W: number, H: number, frame: PhotoSpec['frame']): Promise<Buffer> {
-  if (!frame || frame.style === 'none') return inner
-  const { m } = frameInsets(W, H, frame)
-  const bg = frame.style === 'polaroid' ? '#ffffff' : frame.color
-  return sharp({ create: { width: W, height: H, channels: 3, background: bg } }).composite([{ input: inner, left: m, top: m }]).png().toBuffer()
-}
+/** 한 장 사진에서 부위가 화면 폭에서 차지할 비율 (영상보다 덜 가깝게 — 눈썹이면 눈까지 보이게) */
+const PHOTO_FILL = 0.72
 
 export async function processPhoto(input: Buffer, spec: PhotoSpec): Promise<PhotoResult> {
   const W = spec.width
   const H = spec.height
   let img = sharp(input, { failOn: 'error' }).rotate() // EXIF 방향 적용 (이후 EXIF 는 출력에 남기지 않음)
   img = await blurRegions(img, spec.blur ?? [])
-  const { iw, ih } = frameInsets(W, H, spec.frame)
-  img = await cover(img, iw, ih, spec.focus)
+  img = await cover(img, W, H, { area: spec.area, focus: spec.focus, fill: PHOTO_FILL })
   if (spec.denoise) img = sharp(await img.median(3).toBuffer())
-  const photo = await framed(await gradeRaw(img, spec.grade), W, H, spec.frame)
+  const photo = await gradeRaw(img, spec.grade)
   const composites = await overlayComposites(spec, W, H)
   const data = await sharp(photo)
     .composite(composites)
@@ -170,26 +146,41 @@ export async function processPhoto(input: Buffer, spec: PhotoSpec): Promise<Phot
 
 // ─── 비포·애프터 콜라주 ─────────────────────────────────────────────────────────
 
+export interface CollageSide {
+  data: Buffer
+  focus?: { x: number; y: number } | null
+  area?: Box | null
+  blur?: Box[]
+}
+
 export interface CollageSpec extends Omit<PhotoSpec, 'focus' | 'blur'> {
   /** 비포·애프터 공통 보정값 (하나만 받는다 → 두 장에 다른 보정을 넣을 수 없음) */
   grade: Grade
-  before: { data: Buffer; focus?: { x: number; y: number }; blur?: Box[] }
-  after: { data: Buffer; focus?: { x: number; y: number }; blur?: Box[] }
+  before: CollageSide
+  after: CollageSide
+  /** 배치 (기본: 시술 부위가 잘리지 않고 크게 보이는 쪽을 고른다 → pickCompareLayout) */
+  layout?: CompareLayout
   labels?: { before: string; after: string; style: TextStyle }
   gap?: number
   background?: string
 }
 
 export async function beforeAfter(spec: CollageSpec): Promise<PhotoResult> {
-  const { iw: W, ih: H } = frameInsets(spec.width, spec.height, spec.frame)
+  const W = spec.width
+  const H = spec.height
   const gap = spec.gap ?? Math.round(W * 0.01)
-  const vertical = H / W > 1.3 // 9:16 은 위아래, 1:1·4:5 는 좌우
-  const cw = vertical ? W : Math.floor((W - gap) / 2)
-  const ch = vertical ? Math.floor((H - gap) / 2) : H
-  const cell = async (side: CollageSpec['before']) => {
+  // 방향 보정한 원본 크기로 배치를 고른다 (분석 좌표도 방향 보정 후 기준)
+  const sizes = await Promise.all([spec.before, spec.after].map(async (s) => {
+    const { width, height } = (await sharp(s.data).metadata()).autoOrient
+    return { width, height, area: s.area, focus: s.focus }
+  }))
+  const layout = spec.layout ?? pickCompareLayout(W, H, gap, sizes, PHOTO_FILL)
+  const vertical = layout === 'stack'
+  const { w: cw, h: ch } = compareCells(W, H, gap, layout)
+  const cell = async (side: CollageSide) => {
     let img = sharp(side.data, { failOn: 'error' }).rotate()
     img = await blurRegions(img, side.blur ?? [])
-    img = await cover(img, cw, ch, side.focus)
+    img = await cover(img, cw, ch, { area: side.area, focus: side.focus, fill: PHOTO_FILL })
     if (spec.denoise) img = sharp(await img.median(3).toBuffer())
     return gradeRaw(img, spec.grade) // 같은 grade
   }
@@ -215,11 +206,10 @@ export async function beforeAfter(spec: CollageSpec): Promise<PhotoResult> {
       composites.push({ input: Buffer.from(block.svg), left: bx + padX, top: by + padY })
     }
   }
-  const inner = await sharp({ create: { width: W, height: H, channels: 3, background: spec.background ?? '#ffffff' } })
+  const photo = await sharp({ create: { width: W, height: H, channels: 3, background: spec.background ?? '#ffffff' } })
     .composite(composites)
     .png()
     .toBuffer()
-  const photo = await framed(inner, spec.width, spec.height, spec.frame)
   const extra = await overlayComposites(spec, spec.width, spec.height)
   const data = await sharp(photo).composite(extra).jpeg({ quality: spec.quality ?? 90, mozjpeg: true }).toBuffer()
   return { data, width: spec.width, height: spec.height, contentType: 'image/jpeg' }

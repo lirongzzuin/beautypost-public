@@ -60,7 +60,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      '/api': { target: process.env.API_PROXY ?? 'http://localhost:3000', changeOrigin: true }, // 다른 포트의 테스트 API 는 API_PROXY
     },
   },
 })
