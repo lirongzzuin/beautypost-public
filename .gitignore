@@ -89,3 +89,19 @@ temp/
 
 # 로컬 개발 데이터 (PGlite DB, 로컬 저장소, 렌더 작업 폴더)
 .data/
+
+# ─── 공개 저장소에 올리지 않는 것 ──────────────────────────────────────────────
+# AI 작업 지시서·내부 기획 문서
+CLAUDE.md
+AGENTS.md
+docs/claude-code/
+# 개인 산출물·테스트 결과
+Claude outputs/
+apps/web/test-results/
+playwright-report/
+# 공개 저장소 내보내기 스크립트 (치환 규칙에 실제 이름이 들어 있음)
+scripts/publish-public.sh
+# 인증서·키
+*.pem
+*.key
+*.p12

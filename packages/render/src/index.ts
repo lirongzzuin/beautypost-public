@@ -35,7 +35,7 @@ export const RenderSpec = z.object({
     name: z.string(),
     region: z.string(),
     booking: z.string().nullable().optional(),
-    /** 화면 워터마크 (예: @example_shop). 없으면 샵 이름 */
+    /** 화면 워터마크 (예: @my_shop). 없으면 샵 이름 */
     handle: z.string().nullable().optional(),
   }),
   /** 업종 보정 한계 (작업자가 사진 통계로 자동 보정을 더할 때 스타일 값에 적용) */

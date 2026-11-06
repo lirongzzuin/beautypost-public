@@ -9,7 +9,7 @@ export const ContentSettings = z.object({
   hashtagCount: z.number().int().min(0).max(30).default(5),
   /** 매번 넣을 해시태그 (예: #마이샵) */
   brandHashtags: z.array(z.string().max(41)).max(10).default([]), // '#' 포함
-  /** 영상 워터마크에 쓸 인스타 아이디 (예: @example_shop). 비우면 샵 이름 */
+  /** 영상 워터마크에 쓸 인스타 아이디 (예: @my_shop). 비우면 샵 이름 */
   instagramHandle: z.string().max(41).default(''), // '@' 포함
   /** 얼굴 가림(블러) 사용. 기본은 끔 — 시술 부위까지 흐려지기 쉬워서, 쓰려면 설정에서 켠다 */
   allowFaceBlur: z.boolean().default(false),
